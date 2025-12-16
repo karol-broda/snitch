@@ -27,6 +27,9 @@ Thumbs.db
 # go
 vendor/
 
+# nix
+result
+
 # misc
 *.log
 *.tmp

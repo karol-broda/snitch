@@ -4,8 +4,38 @@ a friendlier `ss` / `netstat` for humans. inspect network connections with a cle
 
 ## install
 
+### go
+
 ```bash
 go install github.com/karol-broda/snitch@latest
+```
+
+### nixos / nix
+
+```bash
+# try it
+nix run github:karol-broda/snitch
+
+# install to profile
+nix profile install github:karol-broda/snitch
+
+# or add to flake inputs
+{
+  inputs.snitch.url = "github:karol-broda/snitch";
+}
+# then use: inputs.snitch.packages.${system}.default
+```
+
+### binary
+
+download from [releases](https://github.com/karol-broda/snitch/releases):
+
+```bash
+# amd64
+curl -L https://github.com/karol-broda/snitch/releases/latest/download/snitch_linux_amd64.tar.gz | tar xz
+sudo mv snitch /usr/local/bin/
+
+# or install .deb/.rpm/.apk from releases
 ```
 
 ## quick start
