@@ -246,16 +246,23 @@ func getSocketInfo(pid, fd int, procName string, uid int, user string) (Connecti
 		raddr = ipv6ToString(info.raddr6)
 	}
 
-	state := ""
-	if info.sock_type == C.SOCK_STREAM {
-		state = tcpStateToString(int(info.state))
-	}
-
 	if laddr == "0.0.0.0" || laddr == "::" {
 		laddr = "*"
 	}
 	if raddr == "0.0.0.0" || raddr == "::" {
 		raddr = "*"
+	}
+
+	state := ""
+	if info.sock_type == C.SOCK_STREAM {
+		state = tcpStateToString(int(info.state))
+	} else if info.sock_type == C.SOCK_DGRAM {
+		// udp is connectionless - infer state from remote address
+		if raddr == "*" && int(info.rport) == 0 {
+			state = "LISTEN"
+		} else {
+			state = "ESTABLISHED"
+		}
 	}
 
 	conn := Connection{

@@ -7,7 +7,7 @@
     [1m[94m"uid"[0m[1m:[0m [33m0[0m[1m,[0m
     [1m[94m"proto"[0m[1m:[0m [32m"udp"[0m[1m,[0m
     [1m[94m"ipversion"[0m[1m:[0m [32m""[0m[1m,[0m
-    [1m[94m"state"[0m[1m:[0m [32m"CONNECTED"[0m[1m,[0m
+    [1m[94m"state"[0m[1m:[0m [32m"LISTEN"[0m[1m,[0m
     [1m[94m"laddr"[0m[1m:[0m [32m"0.0.0.0"[0m[1m,[0m
     [1m[94m"lport"[0m[1m:[0m [33m53[0m[1m,[0m
     [1m[94m"raddr"[0m[1m:[0m [32m""[0m[1m,[0m

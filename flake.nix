@@ -91,7 +91,7 @@
         in
         {
           default = pkgs.mkShell {
-            packages = [ pkgs.go_1_25 pkgs.git ];
+            packages = [ pkgs.go_1_25 pkgs.git pkgs.vhs ];
             GOTOOLCHAIN = "local";
             shellHook = ''
               echo "go toolchain: $(go version)"

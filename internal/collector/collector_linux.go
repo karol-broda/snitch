@@ -226,6 +226,13 @@ func parseProcNet(path, proto string, ipVersion int, inodeMap map[int64]*process
 
 		inode, _ := strconv.ParseInt(fields[9], 10, 64)
 
+		// refine udp state: if unconnected and remote is wildcard, it's listening
+		if strings.HasPrefix(proto, "udp") && state == "UNCONNECTED" {
+			if remoteAddr == "*" && remotePort == 0 {
+				state = "LISTEN"
+			}
+		}
+
 		conn := Connection{
 			TS:        time.Now(),
 			Proto:     proto,
@@ -277,11 +284,20 @@ func parseState(hexState, proto string) string {
 		if s, exists := tcpStates[state]; exists {
 			return s
 		}
-	} else {
-		if state == 0x07 {
-			return "CLOSE"
-		}
 		return ""
+	}
+
+	// udp states - udp is connectionless so the kernel reuses tcp state values
+	// with different meanings:
+	// 0x07 (TCP_CLOSE) = unconnected socket, typically bound and listening
+	// 0x01 (TCP_ESTABLISHED) = "connected" socket (connect() was called)
+	udpStates := map[int64]string{
+		0x01: "ESTABLISHED",
+		0x07: "UNCONNECTED",
+	}
+
+	if s, exists := udpStates[state]; exists {
+		return s
 	}
 
 	return ""

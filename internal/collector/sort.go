@@ -111,16 +111,17 @@ func compareConnections(a, b Connection, field SortField) bool {
 func stateOrder(state string) int {
 	order := map[string]int{
 		"LISTEN":      0,
-		"ESTABLISHED": 1,
-		"SYN_SENT":    2,
-		"SYN_RECV":    3,
-		"FIN_WAIT1":   4,
-		"FIN_WAIT2":   5,
-		"TIME_WAIT":   6,
-		"CLOSE_WAIT":  7,
-		"LAST_ACK":    8,
-		"CLOSING":     9,
-		"CLOSED":      10,
+		"UNCONNECTED": 1, // udp sockets bound but not connected to a specific peer
+		"ESTABLISHED": 2,
+		"SYN_SENT":    3,
+		"SYN_RECV":    4,
+		"FIN_WAIT1":   5,
+		"FIN_WAIT2":   6,
+		"TIME_WAIT":   7,
+		"CLOSE_WAIT":  8,
+		"LAST_ACK":    9,
+		"CLOSING":     10,
+		"CLOSED":      11,
 	}
 
 	if o, exists := order[strings.ToUpper(state)]; exists {

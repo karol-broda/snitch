@@ -1,4 +1,4 @@
 [32;1mPID   PROCESS      USER   PROTO           STATE                LADDR            LPORT    RADDR   RPORT[0;22m
 1            tcp-server          [36mtcp[0m    [33mLISTEN[0m      0.0.0.0          http             0
-2            udp-server          [35mudp[0m    [37mCONNECTED[0m   0.0.0.0          domain           0
+2            udp-server          [35mudp[0m    [33mLISTEN[0m      0.0.0.0          domain           0
 3            unix-app            [37munix[0m   [37mCONNECTED[0m   /tmp/test.sock   0                0

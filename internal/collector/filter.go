@@ -36,7 +36,7 @@ func (f *FilterOptions) IsEmpty() bool {
 }
 
 func (f *FilterOptions) Matches(c Connection) bool {
-	if f.Proto != "" && !strings.EqualFold(c.Proto, f.Proto) {
+	if f.Proto != "" && !matchesProto(c.Proto, f.Proto) {
 		return false
 	}
 	if f.State != "" && !strings.EqualFold(c.State, f.State) {
@@ -102,6 +102,30 @@ func (f *FilterOptions) Matches(c Connection) bool {
 
 func containsIgnoreCase(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+}
+
+// checks if a connection's protocol matches the filter.
+// treats "tcp" as matching "tcp" and "tcp6", same for "udp"/"udp6"
+func matchesProto(connProto, filterProto string) bool {
+	connLower := strings.ToLower(connProto)
+	filterLower := strings.ToLower(filterProto)
+
+	// exact match
+	if connLower == filterLower {
+		return true
+	}
+
+	// "tcp" matches both "tcp" and "tcp6"
+	if filterLower == "tcp" && (connLower == "tcp" || connLower == "tcp6") {
+		return true
+	}
+
+	// "udp" matches both "udp" and "udp6"
+	if filterLower == "udp" && (connLower == "udp" || connLower == "udp6") {
+		return true
+	}
+
+	return false
 }
 
 func matchesContains(c Connection, query string) bool {

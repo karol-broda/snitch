@@ -2,6 +2,8 @@
 
 a friendlier `ss` / `netstat` for humans. inspect network connections with a clean tui or styled tables.
 
+![snitch demo](demo/demo.gif)
+
 ## install
 
 ### go
