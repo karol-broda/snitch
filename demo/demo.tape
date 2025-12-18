@@ -21,7 +21,7 @@ Env FORCE_COLOR "1"
 # launch snitch
 Type "./snitch top"
 Enter
-Sleep 1.5s
+Sleep 1s
 
 # navigate down through connections
 Down

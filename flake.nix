@@ -59,17 +59,20 @@
             overlays = [ goOverlay ];
           };
         in
+        let
+          version = self.shortRev or self.dirtyShortRev or "dev";
+        in
         {
           default = pkgs.buildGoModule {
             pname = "snitch";
-            version = self.shortRev or self.dirtyShortRev or "dev";
+            inherit version;
             src = self;
             vendorHash = "sha256-fX3wOqeOgjH7AuWGxPQxJ+wbhp240CW8tiF4rVUUDzk=";
             env.CGO_ENABLED = 0;
             ldflags = [
               "-s" "-w"
-              "-X snitch/cmd.Version=${self.shortRev or "dev"}"
-              "-X snitch/cmd.Commit=${self.shortRev or "none"}"
+              "-X snitch/cmd.Version=${version}"
+              "-X snitch/cmd.Commit=${version}"
               "-X snitch/cmd.Date=${self.lastModifiedDate or "unknown"}"
             ];
             meta = with pkgs.lib; {
