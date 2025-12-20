@@ -5,6 +5,8 @@ import (
 	"snitch/internal/collector"
 	"strings"
 	"time"
+
+	"github.com/mattn/go-runewidth"
 )
 
 func (m model) renderMain() string {
@@ -31,7 +33,7 @@ func (m model) renderTitle() string {
 	left := m.theme.Styles.Header.Render("snitch")
 
 	ago := time.Since(m.lastRefresh).Round(time.Millisecond * 100)
-	right := m.theme.Styles.Normal.Render(fmt.Sprintf("%d/%d connections  ↻ %s", len(visible), total, formatDuration(ago)))
+	right := m.theme.Styles.Normal.Render(fmt.Sprintf("%d/%d connections  %s %s", len(visible), total, SymbolRefresh, formatDuration(ago)))
 
 	w := m.safeWidth()
 	gap := w - len(stripAnsi(left)) - len(stripAnsi(right)) - 2
@@ -57,7 +59,7 @@ func (m model) renderFilters() string {
 		parts = append(parts, m.theme.Styles.Normal.Render("udp"))
 	}
 
-	parts = append(parts, m.theme.Styles.Border.Render("│"))
+	parts = append(parts, m.theme.Styles.Border.Render(BoxVertical))
 
 	if m.showListening {
 		parts = append(parts, m.theme.Styles.Success.Render("listen"))
@@ -80,9 +82,9 @@ func (m model) renderFilters() string {
 	left := "  " + strings.Join(parts, "  ")
 
 	sortLabel := sortFieldLabel(m.sortField)
-	sortDir := "↑"
+	sortDir := SymbolArrowUp
 	if m.sortReverse {
-		sortDir = "↓"
+		sortDir = SymbolArrowDown
 	}
 
 	var right string
@@ -122,7 +124,7 @@ func (m model) renderSeparator() string {
 	if w < 1 {
 		w = 76
 	}
-	line := "  " + strings.Repeat("─", w)
+	line := "  " + strings.Repeat(BoxHorizontal, w)
 	return m.theme.Styles.Border.Render(line) + "\n"
 }
 
@@ -157,21 +159,21 @@ func (m model) renderRow(c collector.Connection, selected bool) string {
 
 	indicator := "  "
 	if selected {
-		indicator = m.theme.Styles.Success.Render("▸ ")
+		indicator = m.theme.Styles.Success.Render(SymbolSelected + " ")
 	} else if m.isWatched(c.PID) {
-		indicator = m.theme.Styles.Watched.Render("★ ")
+		indicator = m.theme.Styles.Watched.Render(SymbolWatched + " ")
 	}
 
 	process := truncate(c.Process, cols.process)
 	if process == "" {
-		process = "–"
+		process = SymbolDash
 	}
 
 	port := fmt.Sprintf("%d", c.Lport)
 	proto := c.Proto
 	state := c.State
 	if state == "" {
-		state = "–"
+		state = SymbolDash
 	}
 
 	local := c.Laddr
@@ -273,7 +275,7 @@ func (m model) renderDetail() string {
 
 	b.WriteString("\n")
 	b.WriteString("  " + m.theme.Styles.Header.Render("connection details") + "\n")
-	b.WriteString("  " + m.theme.Styles.Border.Render(strings.Repeat("─", 40)) + "\n\n")
+	b.WriteString("  " + m.theme.Styles.Border.Render(strings.Repeat(BoxHorizontal, 40)) + "\n\n")
 
 	fields := []struct {
 		label string
@@ -293,7 +295,7 @@ func (m model) renderDetail() string {
 	for _, f := range fields {
 		val := f.value
 		if val == "" || val == "0" || val == ":0" {
-			val = "–"
+			val = SymbolDash
 		}
 		line := fmt.Sprintf("  %-12s  %s\n", m.theme.Styles.Header.Render(f.label), val)
 		b.WriteString(line)
@@ -327,7 +329,7 @@ func (m model) renderKillModal() string {
 	// build modal content
 	var lines []string
 	lines = append(lines, "")
-	lines = append(lines, m.theme.Styles.Error.Render("  !!  KILL PROCESS?  "))
+	lines = append(lines, m.theme.Styles.Error.Render("  "+SymbolWarning+"  KILL PROCESS?  "))
 	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("  process:  %s", m.theme.Styles.Header.Render(processName)))
 	lines = append(lines, fmt.Sprintf("  pid:      %s", m.theme.Styles.Header.Render(fmt.Sprintf("%d", c.PID))))
@@ -354,7 +356,7 @@ func (m model) overlayModal(background, modal string) string {
 	// find max modal line width using runewidth for proper unicode handling
 	modalWidth := 0
 	for _, line := range modalLines {
-		w := runeWidth(stripAnsi(line))
+		w := stringWidth(line)
 		if w > modalWidth {
 			modalWidth = w
 		}
@@ -385,14 +387,14 @@ func (m model) overlayModal(background, modal string) string {
 
 	// helper to build a line with modal overlay
 	buildLine := func(bgLine, modalContent string) string {
-		modalVisibleWidth := runeWidth(stripAnsi(modalContent))
+		modalVisibleWidth := stringWidth(modalContent)
 		endCol := startCol + modalVisibleWidth
 
 		leftBg := visibleSubstring(bgLine, 0, startCol)
 		rightBg := visibleSubstring(bgLine, endCol, m.width)
 
 		// pad left side if needed
-		leftLen := runeWidth(stripAnsi(leftBg))
+		leftLen := stringWidth(leftBg)
 		if leftLen < startCol {
 			leftBg = leftBg + strings.Repeat(" ", startCol-leftLen)
 		}
@@ -403,7 +405,7 @@ func (m model) overlayModal(background, modal string) string {
 	// draw top border
 	borderRow := startRow - 1
 	if borderRow >= 0 && borderRow < len(result) {
-		border := m.theme.Styles.Border.Render("╭" + strings.Repeat("─", modalWidth) + "╮")
+		border := m.theme.Styles.Border.Render(BoxTopLeft + strings.Repeat(BoxHorizontal, modalWidth) + BoxTopRight)
 		result[borderRow] = buildLine(result[borderRow], border)
 	}
 
@@ -412,11 +414,11 @@ func (m model) overlayModal(background, modal string) string {
 		row := startRow + i
 		if row >= 0 && row < len(result) {
 			content := line
-			padding := modalWidth - runeWidth(stripAnsi(line))
+			padding := modalWidth - stringWidth(line)
 			if padding > 0 {
 				content = line + strings.Repeat(" ", padding)
 			}
-			boxedLine := m.theme.Styles.Border.Render("│") + content + m.theme.Styles.Border.Render("│")
+			boxedLine := m.theme.Styles.Border.Render(BoxVertical) + content + m.theme.Styles.Border.Render(BoxVertical)
 			result[row] = buildLine(result[row], boxedLine)
 		}
 	}
@@ -424,16 +426,16 @@ func (m model) overlayModal(background, modal string) string {
 	// draw bottom border
 	bottomRow := startRow + modalHeight
 	if bottomRow >= 0 && bottomRow < len(result) {
-		border := m.theme.Styles.Border.Render("╰" + strings.Repeat("─", modalWidth) + "╯")
+		border := m.theme.Styles.Border.Render(BoxBottomLeft + strings.Repeat(BoxHorizontal, modalWidth) + BoxBottomRight)
 		result[bottomRow] = buildLine(result[bottomRow], border)
 	}
 
 	return strings.Join(result, "\n")
 }
 
-// runeWidth returns the display width of a string (assumes standard terminal chars)
-func runeWidth(s string) int {
-	return len([]rune(s))
+// stringWidth returns the display width of a string excluding ANSI codes
+func stringWidth(s string) int {
+	return runewidth.StringWidth(stripAnsi(s))
 }
 
 // visibleSubstring extracts a substring by visible column positions, preserving ANSI codes
@@ -445,23 +447,18 @@ func visibleSubstring(s string, start, end int) string {
 	var result strings.Builder
 	visiblePos := 0
 	inEscape := false
-	runes := []rune(s)
 
-	for i := 0; i < len(runes); i++ {
-		r := runes[i]
-
+	for _, r := range s {
 		// detect start of ANSI escape sequence
-		if r == '\x1b' && i+1 < len(runes) && runes[i+1] == '[' {
+		if r == '\x1b' {
 			inEscape = true
-			// always include ANSI codes so colors carry over
 			result.WriteRune(r)
 			continue
 		}
 
 		if inEscape {
-			// include escape sequence characters
 			result.WriteRune(r)
-			// check for end of escape sequence (letter)
+			// end of escape sequence is a letter
 			if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
 				inEscape = false
 			}
@@ -469,10 +466,11 @@ func visibleSubstring(s string, start, end int) string {
 		}
 
 		// regular visible character
-		if visiblePos >= start && visiblePos < end {
+		w := runewidth.RuneWidth(r)
+		if visiblePos >= start && visiblePos+w <= end {
 			result.WriteRune(r)
 		}
-		visiblePos++
+		visiblePos += w
 
 		if visiblePos >= end {
 			break

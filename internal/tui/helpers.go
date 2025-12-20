@@ -14,7 +14,7 @@ func truncate(s string, max int) string {
 	if max <= 2 {
 		return s[:max]
 	}
-	return s[:max-1] + "…"
+	return s[:max-1] + SymbolEllipsis
 }
 
 var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
