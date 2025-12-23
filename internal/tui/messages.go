@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"github.com/karol-broda/snitch/internal/collector"
+	"github.com/karol-broda/snitch/internal/resolver"
 	"syscall"
 	"time"
 
@@ -35,10 +36,19 @@ func (m model) tick() tea.Cmd {
 }
 
 func (m model) fetchData() tea.Cmd {
+	resolveAddrs := m.resolveAddrs
 	return func() tea.Msg {
 		conns, err := collector.GetConnections()
 		if err != nil {
 			return errMsg{err}
+		}
+		// pre-warm dns cache in parallel if resolution is enabled
+		if resolveAddrs {
+			addrs := make([]string, 0, len(conns)*2)
+			for _, c := range conns {
+				addrs = append(addrs, c.Laddr, c.Raddr)
+			}
+			resolver.ResolveAddrsParallel(addrs)
 		}
 		return dataMsg{connections: conns}
 	}

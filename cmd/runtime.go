@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/karol-broda/snitch/internal/collector"
 	"github.com/karol-broda/snitch/internal/color"
+	"github.com/karol-broda/snitch/internal/config"
+	"github.com/karol-broda/snitch/internal/resolver"
 	"strconv"
 	"strings"
 
@@ -11,7 +13,7 @@ import (
 )
 
 // Runtime holds the shared state for all commands.
-// it handles common filter logic, fetching, and filtering connections.
+// it handles common filter logic, fetching, filtering, and resolution.
 type Runtime struct {
 	// filter options built from flags and args
 	Filters collector.FilterOptions
@@ -23,6 +25,7 @@ type Runtime struct {
 	ColorMode    string
 	ResolveAddrs bool
 	ResolvePorts bool
+	NoCache      bool
 }
 
 // shared filter flags - used by all commands
@@ -33,6 +36,13 @@ var (
 	filterEstab  bool
 	filterIPv4   bool
 	filterIPv6   bool
+)
+
+// shared resolution flags - used by all commands
+var (
+	resolveAddrs bool
+	resolvePorts bool
+	noCache      bool
 )
 
 // BuildFilters constructs FilterOptions from command args and shortcut flags.
@@ -77,6 +87,12 @@ func FetchConnections(filters collector.FilterOptions) ([]collector.Connection, 
 func NewRuntime(args []string, colorMode string) (*Runtime, error) {
 	color.Init(colorMode)
 
+	cfg := config.Get()
+	
+	// configure resolver with cache setting (flag overrides config)
+	effectiveNoCache := noCache || !cfg.Defaults.DNSCache
+	resolver.SetNoCache(effectiveNoCache)
+
 	filters, err := BuildFilters(args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse filters: %w", err)
@@ -87,13 +103,30 @@ func NewRuntime(args []string, colorMode string) (*Runtime, error) {
 		return nil, fmt.Errorf("failed to fetch connections: %w", err)
 	}
 
-	return &Runtime{
+	rt := &Runtime{
 		Filters:      filters,
 		Connections:  connections,
 		ColorMode:    colorMode,
 		ResolveAddrs: resolveAddrs,
 		ResolvePorts: resolvePorts,
-	}, nil
+		NoCache:      effectiveNoCache,
+	}
+
+	// pre-warm dns cache by resolving all addresses in parallel
+	if resolveAddrs {
+		rt.PreWarmDNS()
+	}
+
+	return rt, nil
+}
+
+// PreWarmDNS resolves all connection addresses in parallel to warm the cache.
+func (r *Runtime) PreWarmDNS() {
+	addrs := make([]string, 0, len(r.Connections)*2)
+	for _, c := range r.Connections {
+		addrs = append(addrs, c.Laddr, c.Raddr)
+	}
+	resolver.ResolveAddrsParallel(addrs)
 }
 
 // SortConnections sorts the runtime's connections in place.
@@ -199,5 +232,13 @@ func addFilterFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVarP(&filterEstab, "established", "e", false, "Show only established connections")
 	cmd.Flags().BoolVarP(&filterIPv4, "ipv4", "4", false, "Only show IPv4 connections")
 	cmd.Flags().BoolVarP(&filterIPv6, "ipv6", "6", false, "Only show IPv6 connections")
+}
+
+// addResolutionFlags adds the common resolution flags to a command.
+func addResolutionFlags(cmd *cobra.Command) {
+	cfg := config.Get()
+	cmd.Flags().BoolVar(&resolveAddrs, "resolve-addrs", !cfg.Defaults.Numeric, "Resolve IP addresses to hostnames")
+	cmd.Flags().BoolVar(&resolvePorts, "resolve-ports", false, "Resolve port numbers to service names")
+	cmd.Flags().BoolVar(&noCache, "no-cache", !cfg.Defaults.DNSCache, "Disable DNS caching (force fresh lookups)")
 }
 

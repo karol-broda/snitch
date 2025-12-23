@@ -30,8 +30,6 @@ var (
 	sortBy        string
 	fields        string
 	colorMode     string
-	resolveAddrs  bool
-	resolvePorts  bool
 	plainOutput   bool
 )
 
@@ -400,10 +398,9 @@ func init() {
 	lsCmd.Flags().StringVarP(&sortBy, "sort", "s", cfg.Defaults.SortBy, "Sort by column (e.g., pid:desc)")
 	lsCmd.Flags().StringVarP(&fields, "fields", "f", strings.Join(cfg.Defaults.Fields, ","), "Comma-separated list of fields to show")
 	lsCmd.Flags().StringVar(&colorMode, "color", cfg.Defaults.Color, "Color mode (auto, always, never)")
-	lsCmd.Flags().BoolVar(&resolveAddrs, "resolve-addrs", !cfg.Defaults.Numeric, "Resolve IP addresses to hostnames")
-	lsCmd.Flags().BoolVar(&resolvePorts, "resolve-ports", false, "Resolve port numbers to service names")
 	lsCmd.Flags().BoolVarP(&plainOutput, "plain", "p", false, "Plain output (parsable, no styling)")
 
-	// shared filter flags
+	// shared flags
 	addFilterFlags(lsCmd)
+	addResolutionFlags(lsCmd)
 }

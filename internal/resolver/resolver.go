@@ -10,9 +10,10 @@ import (
 
 // Resolver handles DNS and service name resolution with caching and timeouts
 type Resolver struct {
-	timeout time.Duration
-	cache   map[string]string
-	mutex   sync.RWMutex
+	timeout  time.Duration
+	cache    map[string]string
+	mutex    sync.RWMutex
+	noCache  bool
 }
 
 // New creates a new resolver with the specified timeout
@@ -20,45 +21,54 @@ func New(timeout time.Duration) *Resolver {
 	return &Resolver{
 		timeout: timeout,
 		cache:   make(map[string]string),
+		noCache: false,
 	}
+}
+
+// SetNoCache disables caching - each lookup will hit DNS directly
+func (r *Resolver) SetNoCache(noCache bool) {
+	r.noCache = noCache
 }
 
 // ResolveAddr resolves an IP address to a hostname, with caching
 func (r *Resolver) ResolveAddr(addr string) string {
-	// Check cache first
-	r.mutex.RLock()
-	if cached, exists := r.cache[addr]; exists {
+	// check cache first (unless caching is disabled)
+	if !r.noCache {
+		r.mutex.RLock()
+		if cached, exists := r.cache[addr]; exists {
+			r.mutex.RUnlock()
+			return cached
+		}
 		r.mutex.RUnlock()
-		return cached
 	}
-	r.mutex.RUnlock()
 
-	// Parse IP to validate it
+	// parse ip to validate it
 	ip := net.ParseIP(addr)
 	if ip == nil {
-		// Not a valid IP, return as-is
 		return addr
 	}
 
-	// Perform resolution with timeout
+	// perform resolution with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 
 	names, err := net.DefaultResolver.LookupAddr(ctx, addr)
 
-	resolved := addr // fallback to original address
+	resolved := addr
 	if err == nil && len(names) > 0 {
 		resolved = names[0]
-		// Remove trailing dot if present
+		// remove trailing dot if present
 		if len(resolved) > 0 && resolved[len(resolved)-1] == '.' {
 			resolved = resolved[:len(resolved)-1]
 		}
 	}
 
-	// Cache the result
-	r.mutex.Lock()
-	r.cache[addr] = resolved
-	r.mutex.Unlock()
+	// cache the result (unless caching is disabled)
+	if !r.noCache {
+		r.mutex.Lock()
+		r.cache[addr] = resolved
+		r.mutex.Unlock()
+	}
 
 	return resolved
 }
@@ -159,20 +169,36 @@ func getServiceName(port int, proto string) string {
 	return ""
 }
 
-// Global resolver instance
+// global resolver instance
 var globalResolver *Resolver
 
-// SetGlobalResolver sets the global resolver instance
-func SetGlobalResolver(timeout time.Duration) {
+// ResolverOptions configures the global resolver
+type ResolverOptions struct {
+	Timeout time.Duration
+	NoCache bool
+}
+
+// SetGlobalResolver sets the global resolver instance with options
+func SetGlobalResolver(opts ResolverOptions) {
+	timeout := opts.Timeout
+	if timeout == 0 {
+		timeout = 200 * time.Millisecond
+	}
 	globalResolver = New(timeout)
+	globalResolver.SetNoCache(opts.NoCache)
 }
 
 // GetGlobalResolver returns the global resolver instance
 func GetGlobalResolver() *Resolver {
 	if globalResolver == nil {
-		globalResolver = New(200 * time.Millisecond) // Default timeout
+		globalResolver = New(200 * time.Millisecond)
 	}
 	return globalResolver
+}
+
+// SetNoCache configures whether the global resolver bypasses cache
+func SetNoCache(noCache bool) {
+	GetGlobalResolver().SetNoCache(noCache)
 }
 
 // ResolveAddr is a convenience function using the global resolver
@@ -188,4 +214,49 @@ func ResolvePort(port int, proto string) string {
 // ResolveAddrPort is a convenience function using the global resolver
 func ResolveAddrPort(addr string, port int, proto string) (string, string) {
 	return GetGlobalResolver().ResolveAddrPort(addr, port, proto)
+}
+
+// ResolveAddrsParallel resolves multiple addresses concurrently and caches results.
+// This should be called before rendering to pre-warm the cache.
+func (r *Resolver) ResolveAddrsParallel(addrs []string) {
+	// dedupe and filter addresses that need resolution
+	unique := make(map[string]struct{})
+	for _, addr := range addrs {
+		if addr == "" || addr == "*" {
+			continue
+		}
+		// skip if already cached
+		r.mutex.RLock()
+		_, exists := r.cache[addr]
+		r.mutex.RUnlock()
+		if exists {
+			continue
+		}
+		unique[addr] = struct{}{}
+	}
+
+	if len(unique) == 0 {
+		return
+	}
+
+	var wg sync.WaitGroup
+	// limit concurrency to avoid overwhelming dns
+	sem := make(chan struct{}, 32)
+
+	for addr := range unique {
+		wg.Add(1)
+		go func(a string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			r.ResolveAddr(a)
+		}(addr)
+	}
+
+	wg.Wait()
+}
+
+// ResolveAddrsParallel is a convenience function using the global resolver
+func ResolveAddrsParallel(addrs []string) {
+	GetGlobalResolver().ResolveAddrsParallel(addrs)
 }
