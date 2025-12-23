@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"github.com/karol-broda/snitch/internal/collector"
+	"github.com/karol-broda/snitch/internal/resolver"
+	"strconv"
 	"strings"
 	"time"
 
@@ -161,19 +163,19 @@ func (m model) renderRow(c collector.Connection, selected bool) string {
 		process = SymbolDash
 	}
 
-	port := fmt.Sprintf("%d", c.Lport)
+	port := truncate(m.resolvePort(c.Lport, c.Proto), cols.port)
 	proto := c.Proto
 	state := c.State
 	if state == "" {
 		state = SymbolDash
 	}
 
-	local := c.Laddr
+	local := truncate(m.resolveAddr(c.Laddr), cols.local)
 	if local == "*" || local == "" {
 		local = "*"
 	}
 
-	remote := formatRemote(c.Raddr, c.Rport)
+	remote := truncate(m.formatRemote(c.Raddr, c.Rport, c.Proto), cols.remote)
 
 	// apply styling
 	protoStyled := m.theme.Styles.GetProtoStyle(proto).Render(fmt.Sprintf("%-*s", cols.proto, proto))
@@ -185,8 +187,8 @@ func (m model) renderRow(c collector.Connection, selected bool) string {
 		cols.port, port,
 		protoStyled,
 		stateStyled,
-		cols.local, truncate(local, cols.local),
-		truncate(remote, cols.remote))
+		cols.local, local,
+		remote)
 
 	if selected {
 		return m.theme.Styles.Selected.Render(row) + "\n"
@@ -201,12 +203,27 @@ func (m model) renderStatusLine() string {
 		return "  " + m.theme.Styles.Warning.Render(m.statusMessage)
 	}
 
-	left := "  " + m.theme.Styles.Normal.Render("t/u proto  l/e/o state  w watch  K kill  s sort  / search  ? help  q quit")
+	left := "  " + m.theme.Styles.Normal.Render("t/u proto  l/e/o state  n/N dns  w watch  K kill  s sort  / search  ? help  q quit")
 
 	// show watched count if any
 	if m.watchedCount() > 0 {
 		watchedInfo := fmt.Sprintf("  watching: %d", m.watchedCount())
 		left += m.theme.Styles.Watched.Render(watchedInfo)
+	}
+
+	// show dns resolution status
+	var resolveStatus string
+	if m.resolveAddrs && m.resolvePorts {
+		resolveStatus = "all"
+	} else if m.resolveAddrs {
+		resolveStatus = "addrs"
+	} else if m.resolvePorts {
+		resolveStatus = "ports"
+	} else {
+		resolveStatus = "off"
+	}
+	if resolveStatus != "addrs" { // addrs is the default, don't show
+		left += m.theme.Styles.Normal.Render(fmt.Sprintf("  dns: %s", resolveStatus))
 	}
 
 	return left
@@ -240,6 +257,11 @@ func (m model) renderHelp() string {
   s            cycle sort field
   S            reverse sort order
 
+  display
+  ───────
+  n            toggle address resolution (dns)
+  N            toggle port resolution (service names)
+
   process management
   ──────────────────
   w            watch/unwatch process (highlight & track)
@@ -269,6 +291,11 @@ func (m model) renderDetail() string {
 	b.WriteString("  " + m.theme.Styles.Header.Render("connection details") + "\n")
 	b.WriteString("  " + m.theme.Styles.Border.Render(strings.Repeat(BoxHorizontal, 40)) + "\n\n")
 
+	localAddr := m.resolveAddr(c.Laddr)
+	localPort := m.resolvePort(c.Lport, c.Proto)
+	remoteAddr := m.resolveAddr(c.Raddr)
+	remotePort := m.resolvePort(c.Rport, c.Proto)
+
 	fields := []struct {
 		label string
 		value string
@@ -278,8 +305,8 @@ func (m model) renderDetail() string {
 		{"user", c.User},
 		{"protocol", c.Proto},
 		{"state", c.State},
-		{"local", fmt.Sprintf("%s:%d", c.Laddr, c.Lport)},
-		{"remote", fmt.Sprintf("%s:%d", c.Raddr, c.Rport)},
+		{"local", fmt.Sprintf("%s:%s", localAddr, localPort)},
+		{"remote", fmt.Sprintf("%s:%s", remoteAddr, remotePort)},
 		{"interface", c.Interface},
 		{"inode", fmt.Sprintf("%d", c.Inode)},
 	}
@@ -498,23 +525,72 @@ type columns struct {
 }
 
 func (m model) columnWidths() columns {
-	available := m.safeWidth() - 16
-
+	// minimum widths (header lengths + padding)
 	c := columns{
-		process: 16,
-		port:    6,
-		proto:   5,
-		state:   11,
-		local:   15,
-		remote:  20,
+		process: 7,  // "PROCESS"
+		port:    4,  // "PORT"
+		proto:   5,  // "PROTO"
+		state:   5,  // "STATE"
+		local:   5,  // "LOCAL"
+		remote:  6,  // "REMOTE"
 	}
 
-	used := c.process + c.port + c.proto + c.state + c.local + c.remote
-	extra := available - used
+	// scan visible connections to find max content width for each column
+	visible := m.visibleConnections()
+	for _, conn := range visible {
+		if len(conn.Process) > c.process {
+			c.process = len(conn.Process)
+		}
 
-	if extra > 0 {
-		c.process += extra / 3
-		c.remote += extra - extra/3
+		port := m.resolvePort(conn.Lport, conn.Proto)
+		if len(port) > c.port {
+			c.port = len(port)
+		}
+
+		if len(conn.Proto) > c.proto {
+			c.proto = len(conn.Proto)
+		}
+
+		if len(conn.State) > c.state {
+			c.state = len(conn.State)
+		}
+
+		local := m.resolveAddr(conn.Laddr)
+		if len(local) > c.local {
+			c.local = len(local)
+		}
+
+		remote := m.formatRemote(conn.Raddr, conn.Rport, conn.Proto)
+		if len(remote) > c.remote {
+			c.remote = len(remote)
+		}
+	}
+
+	// calculate total and available width
+	spacing := 12 // 2 spaces between each of 6 columns
+	indicator := 2
+	margin := 2
+	available := m.safeWidth() - spacing - indicator - margin
+
+	total := c.process + c.port + c.proto + c.state + c.local + c.remote
+
+	// if content fits, we're done
+	if total <= available {
+		return c
+	}
+
+	// content exceeds available space - need to shrink columns proportionally
+	// fixed columns that shouldn't shrink much: port, proto, state
+	fixedWidth := c.port + c.proto + c.state
+	flexibleAvailable := available - fixedWidth
+
+	// distribute flexible space between process, local, remote
+	flexibleTotal := c.process + c.local + c.remote
+	if flexibleTotal > 0 && flexibleAvailable > 0 {
+		ratio := float64(flexibleAvailable) / float64(flexibleTotal)
+		c.process = max(7, int(float64(c.process)*ratio))
+		c.local = max(5, int(float64(c.local)*ratio))
+		c.remote = max(6, int(float64(c.remote)*ratio))
 	}
 
 	return c
@@ -535,4 +611,30 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%.1fs", d.Seconds())
 	}
 	return fmt.Sprintf("%.0fm", d.Minutes())
+}
+
+func (m model) resolveAddr(addr string) string {
+	if !m.resolveAddrs {
+		return addr
+	}
+	if addr == "" || addr == "*" {
+		return addr
+	}
+	return resolver.ResolveAddr(addr)
+}
+
+func (m model) resolvePort(port int, proto string) string {
+	if !m.resolvePorts {
+		return strconv.Itoa(port)
+	}
+	return resolver.ResolvePort(port, proto)
+}
+
+func (m model) formatRemote(addr string, port int, proto string) string {
+	if addr == "" || addr == "*" || port == 0 {
+		return "-"
+	}
+	resolvedAddr := m.resolveAddr(addr)
+	resolvedPort := m.resolvePort(port, proto)
+	return fmt.Sprintf("%s:%s", resolvedAddr, resolvedPort)
 }

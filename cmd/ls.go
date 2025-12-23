@@ -30,7 +30,8 @@ var (
 	sortBy        string
 	fields        string
 	colorMode     string
-	numeric       bool
+	resolveAddrs  bool
+	resolvePorts  bool
 	plainOutput   bool
 )
 
@@ -51,7 +52,7 @@ Available filters:
 }
 
 func runListCommand(outputFormat string, args []string) {
-	rt, err := NewRuntime(args, colorMode, numeric)
+	rt, err := NewRuntime(args, colorMode)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,14 +99,18 @@ func getFieldMap(c collector.Connection) map[string]string {
 	lport := strconv.Itoa(c.Lport)
 	rport := strconv.Itoa(c.Rport)
 	
-	// Apply name resolution if not in numeric mode
-	if !numeric {
+	// apply address resolution
+	if resolveAddrs {
 		if resolvedLaddr := resolver.ResolveAddr(c.Laddr); resolvedLaddr != c.Laddr {
 			laddr = resolvedLaddr
 		}
 		if resolvedRaddr := resolver.ResolveAddr(c.Raddr); resolvedRaddr != c.Raddr && c.Raddr != "*" && c.Raddr != "" {
 			raddr = resolvedRaddr
 		}
+	}
+
+	// apply port resolution
+	if resolvePorts {
 		if resolvedLport := resolver.ResolvePort(c.Lport, c.Proto); resolvedLport != strconv.Itoa(c.Lport) {
 			lport = resolvedLport
 		}
@@ -395,7 +400,8 @@ func init() {
 	lsCmd.Flags().StringVarP(&sortBy, "sort", "s", cfg.Defaults.SortBy, "Sort by column (e.g., pid:desc)")
 	lsCmd.Flags().StringVarP(&fields, "fields", "f", strings.Join(cfg.Defaults.Fields, ","), "Comma-separated list of fields to show")
 	lsCmd.Flags().StringVar(&colorMode, "color", cfg.Defaults.Color, "Color mode (auto, always, never)")
-	lsCmd.Flags().BoolVarP(&numeric, "numeric", "n", cfg.Defaults.Numeric, "Don't resolve hostnames")
+	lsCmd.Flags().BoolVar(&resolveAddrs, "resolve-addrs", !cfg.Defaults.Numeric, "Resolve IP addresses to hostnames")
+	lsCmd.Flags().BoolVar(&resolvePorts, "resolve-ports", false, "Resolve port numbers to service names")
 	lsCmd.Flags().BoolVarP(&plainOutput, "plain", "p", false, "Plain output (parsable, no styling)")
 
 	// shared filter flags

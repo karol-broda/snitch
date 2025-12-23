@@ -364,7 +364,8 @@ func resetGlobalFlags() {
 	filterIPv4 = false
 	filterIPv6 = false
 	colorMode = "auto"
-	numeric = false
+	resolveAddrs = true
+	resolvePorts = false
 }
 
 // TestEnvironmentVariables tests that environment variables are properly handled
