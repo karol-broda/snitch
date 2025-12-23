@@ -1,7 +1,7 @@
 {
   description = "snitch - a friendlier ss/netstat for humans";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
 
   outputs = { self, nixpkgs }:
     let
@@ -48,9 +48,9 @@
         let
           rev = self.shortRev or self.dirtyShortRev or "unknown";
           version = "nix-${rev}";
+          isDarwin = pkgs.stdenv.isDarwin;
           go = mkGo125 pkgs;
           buildGoModule = pkgs.buildGoModule.override { inherit go; };
-          isDarwin = pkgs.stdenv.isDarwin;
         in
         buildGoModule {
           pname = "snitch";
@@ -60,9 +60,8 @@
           # darwin requires cgo for libproc, linux uses pure go with /proc
           env.CGO_ENABLED = if isDarwin then "1" else "0";
           env.GOTOOLCHAIN = "local";
-          # go 1.25 crypto/x509 uses SecTrustCopyCertificateChain (macOS 12+)
-          env.MACOSX_DEPLOYMENT_TARGET = pkgs.lib.optionalString isDarwin "12.0";
-          # nixpkgs 25.05+ uses system SDK directly, no explicit framework buildInputs needed
+          # darwin: use macOS 15 SDK for SecTrustCopyCertificateChain (Go 1.25 crypto/x509)
+          buildInputs = pkgs.lib.optionals isDarwin [ pkgs.apple-sdk_15 ];
           ldflags = [
             "-s"
             "-w"
