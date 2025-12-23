@@ -210,6 +210,28 @@ func (m model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.showKillConfirm = true
 			}
 		}
+
+	// toggle address resolution
+	case "n":
+		m.resolveAddrs = !m.resolveAddrs
+		if m.resolveAddrs {
+			m.statusMessage = "address resolution: on"
+		} else {
+			m.statusMessage = "address resolution: off"
+		}
+		m.statusExpiry = time.Now().Add(2 * time.Second)
+		return m, clearStatusAfter(2 * time.Second)
+
+	// toggle port resolution
+	case "N":
+		m.resolvePorts = !m.resolvePorts
+		if m.resolvePorts {
+			m.statusMessage = "port resolution: on"
+		} else {
+			m.statusMessage = "port resolution: off"
+		}
+		m.statusExpiry = time.Now().Add(2 * time.Second)
+		return m, clearStatusAfter(2 * time.Second)
 	}
 
 	return m, nil

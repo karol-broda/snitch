@@ -28,6 +28,10 @@ type model struct {
 	sortField   collector.SortField
 	sortReverse bool
 
+	// display options
+	resolveAddrs bool // when true, resolve IP addresses to hostnames
+	resolvePorts bool // when true, resolve port numbers to service names
+
 	// ui state
 	theme       *theme.Theme
 	showHelp    bool
@@ -50,14 +54,16 @@ type model struct {
 }
 
 type Options struct {
-	Theme       string
-	Interval    time.Duration
-	TCP         bool
-	UDP         bool
-	Listening   bool
-	Established bool
-	Other       bool
-	FilterSet   bool // true if user specified any filter flags
+	Theme        string
+	Interval     time.Duration
+	TCP          bool
+	UDP          bool
+	Listening    bool
+	Established  bool
+	Other        bool
+	FilterSet    bool // true if user specified any filter flags
+	ResolveAddrs bool // when true, resolve IP addresses to hostnames
+	ResolvePorts bool // when true, resolve port numbers to service names
 }
 
 func New(opts Options) model {
@@ -102,6 +108,8 @@ func New(opts Options) model {
 		showEstablished: showEstablished,
 		showOther:       showOther,
 		sortField:       collector.SortByLport,
+		resolveAddrs:    opts.ResolveAddrs,
+		resolvePorts:    opts.ResolvePorts,
 		theme:           theme.GetTheme(opts.Theme),
 		interval:        interval,
 		lastRefresh:     time.Now(),

@@ -20,8 +20,9 @@ type Runtime struct {
 	Connections []collector.Connection
 
 	// common settings
-	ColorMode string
-	Numeric   bool
+	ColorMode    string
+	ResolveAddrs bool
+	ResolvePorts bool
 }
 
 // shared filter flags - used by all commands
@@ -73,7 +74,7 @@ func FetchConnections(filters collector.FilterOptions) ([]collector.Connection, 
 }
 
 // NewRuntime creates a runtime with fetched and filtered connections.
-func NewRuntime(args []string, colorMode string, numeric bool) (*Runtime, error) {
+func NewRuntime(args []string, colorMode string) (*Runtime, error) {
 	color.Init(colorMode)
 
 	filters, err := BuildFilters(args)
@@ -87,10 +88,11 @@ func NewRuntime(args []string, colorMode string, numeric bool) (*Runtime, error)
 	}
 
 	return &Runtime{
-		Filters:     filters,
-		Connections: connections,
-		ColorMode:   colorMode,
-		Numeric:     numeric,
+		Filters:      filters,
+		Connections:  connections,
+		ColorMode:    colorMode,
+		ResolveAddrs: resolveAddrs,
+		ResolvePorts: resolvePorts,
 	}, nil
 }
 
