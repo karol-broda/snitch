@@ -301,3 +301,132 @@ func TestTUI_ViewRenders(t *testing.T) {
 	}
 }
 
+func TestTUI_ResolutionOptions(t *testing.T) {
+	// test default resolution settings
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+
+	if m.resolveAddrs != false {
+		t.Error("expected resolveAddrs to be false by default (must be explicitly set)")
+	}
+	if m.resolvePorts != false {
+		t.Error("expected resolvePorts to be false by default")
+	}
+
+	// test with explicit options
+	m2 := New(Options{
+		Theme:        "dark",
+		Interval:     time.Hour,
+		ResolveAddrs: true,
+		ResolvePorts: true,
+	})
+
+	if m2.resolveAddrs != true {
+		t.Error("expected resolveAddrs to be true when set")
+	}
+	if m2.resolvePorts != true {
+		t.Error("expected resolvePorts to be true when set")
+	}
+}
+
+func TestTUI_ToggleResolution(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour, ResolveAddrs: true})
+
+	if m.resolveAddrs != true {
+		t.Fatal("expected resolveAddrs to be true initially")
+	}
+
+	// toggle address resolution with 'n'
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	m = newModel.(model)
+
+	if m.resolveAddrs != false {
+		t.Error("expected resolveAddrs to be false after toggle")
+	}
+
+	// toggle back
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	m = newModel.(model)
+
+	if m.resolveAddrs != true {
+		t.Error("expected resolveAddrs to be true after second toggle")
+	}
+
+	// toggle port resolution with 'N'
+	if m.resolvePorts != false {
+		t.Fatal("expected resolvePorts to be false initially")
+	}
+
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'N'}})
+	m = newModel.(model)
+
+	if m.resolvePorts != true {
+		t.Error("expected resolvePorts to be true after toggle")
+	}
+
+	// toggle back
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'N'}})
+	m = newModel.(model)
+
+	if m.resolvePorts != false {
+		t.Error("expected resolvePorts to be false after second toggle")
+	}
+}
+
+func TestTUI_ResolveAddrHelper(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+	m.resolveAddrs = false
+
+	// when resolution is off, should return original address
+	addr := m.resolveAddr("192.168.1.1")
+	if addr != "192.168.1.1" {
+		t.Errorf("expected original address when resolution off, got %s", addr)
+	}
+
+	// empty and wildcard addresses should pass through unchanged
+	if m.resolveAddr("") != "" {
+		t.Error("expected empty string to pass through")
+	}
+	if m.resolveAddr("*") != "*" {
+		t.Error("expected wildcard to pass through")
+	}
+}
+
+func TestTUI_ResolvePortHelper(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+	m.resolvePorts = false
+
+	// when resolution is off, should return port number as string
+	port := m.resolvePort(80, "tcp")
+	if port != "80" {
+		t.Errorf("expected '80' when resolution off, got %s", port)
+	}
+
+	port = m.resolvePort(443, "tcp")
+	if port != "443" {
+		t.Errorf("expected '443' when resolution off, got %s", port)
+	}
+}
+
+func TestTUI_FormatRemoteHelper(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+	m.resolveAddrs = false
+	m.resolvePorts = false
+
+	// empty/wildcard addresses should return dash
+	if m.formatRemote("", 80, "tcp") != "-" {
+		t.Error("expected dash for empty address")
+	}
+	if m.formatRemote("*", 80, "tcp") != "-" {
+		t.Error("expected dash for wildcard address")
+	}
+	if m.formatRemote("192.168.1.1", 0, "tcp") != "-" {
+		t.Error("expected dash for zero port")
+	}
+
+	// valid address:port should format correctly
+	result := m.formatRemote("192.168.1.1", 443, "tcp")
+	if result != "192.168.1.1:443" {
+		t.Errorf("expected '192.168.1.1:443', got %s", result)
+	}
+}
+

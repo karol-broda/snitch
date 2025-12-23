@@ -12,8 +12,10 @@ import (
 
 // top-specific flags
 var (
-	topTheme    string
-	topInterval time.Duration
+	topTheme        string
+	topInterval     time.Duration
+	topResolveAddrs bool
+	topResolvePorts bool
 )
 
 var topCmd = &cobra.Command{
@@ -28,8 +30,10 @@ var topCmd = &cobra.Command{
 		}
 
 		opts := tui.Options{
-			Theme:    theme,
-			Interval: topInterval,
+			Theme:        theme,
+			Interval:     topInterval,
+			ResolveAddrs: topResolveAddrs,
+			ResolvePorts: topResolvePorts,
 		}
 
 		// if any filter flag is set, use exclusive mode
@@ -58,6 +62,8 @@ func init() {
 	// top-specific flags
 	topCmd.Flags().StringVar(&topTheme, "theme", cfg.Defaults.Theme, "Theme for TUI (dark, light, mono, auto)")
 	topCmd.Flags().DurationVarP(&topInterval, "interval", "i", time.Second, "Refresh interval")
+	topCmd.Flags().BoolVar(&topResolveAddrs, "resolve-addrs", !cfg.Defaults.Numeric, "Resolve IP addresses to hostnames")
+	topCmd.Flags().BoolVar(&topResolvePorts, "resolve-ports", false, "Resolve port numbers to service names")
 
 	// shared filter flags
 	addFilterFlags(topCmd)

@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"regexp"
 	"github.com/karol-broda/snitch/internal/collector"
 	"strings"
@@ -42,12 +41,5 @@ func sortFieldLabel(f collector.SortField) string {
 	default:
 		return "port"
 	}
-}
-
-func formatRemote(addr string, port int) string {
-	if addr == "" || addr == "*" || port == 0 {
-		return "-"
-	}
-	return fmt.Sprintf("%s:%d", addr, port)
 }
 
