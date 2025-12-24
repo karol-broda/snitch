@@ -34,7 +34,7 @@ jobs:
       - name: lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2
+          version: v2.5.0
 
   nix-build:
     strategy:
