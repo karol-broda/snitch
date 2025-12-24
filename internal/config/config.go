@@ -25,6 +25,7 @@ type DefaultConfig struct {
 	Units        string   `mapstructure:"units"`
 	Color        string   `mapstructure:"color"`
 	Resolve      bool     `mapstructure:"resolve"`
+	DNSCache     bool     `mapstructure:"dns_cache"`
 	IPv4         bool     `mapstructure:"ipv4"`
 	IPv6         bool     `mapstructure:"ipv6"`
 	NoHeaders    bool     `mapstructure:"no_headers"`
@@ -57,6 +58,7 @@ func Load() (*Config, error) {
 	// environment variable bindings for readme-documented variables
 	_ = v.BindEnv("config", "SNITCH_CONFIG")
 	_ = v.BindEnv("defaults.resolve", "SNITCH_RESOLVE")
+	_ = v.BindEnv("defaults.dns_cache", "SNITCH_DNS_CACHE")
 	_ = v.BindEnv("defaults.theme", "SNITCH_THEME")
 	_ = v.BindEnv("defaults.color", "SNITCH_NO_COLOR")
 	
@@ -90,7 +92,6 @@ func Load() (*Config, error) {
 }
 
 func setDefaults(v *viper.Viper) {
-	// Set default values matching the README specification
 	v.SetDefault("defaults.interval", "1s")
 	v.SetDefault("defaults.numeric", false)
 	v.SetDefault("defaults.fields", []string{"pid", "process", "user", "proto", "state", "laddr", "lport", "raddr", "rport"})
@@ -98,6 +99,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("defaults.units", "auto")
 	v.SetDefault("defaults.color", "auto")
 	v.SetDefault("defaults.resolve", true)
+	v.SetDefault("defaults.dns_cache", true)
 	v.SetDefault("defaults.ipv4", false)
 	v.SetDefault("defaults.ipv6", false)
 	v.SetDefault("defaults.no_headers", false)
@@ -116,6 +118,11 @@ func handleSpecialEnvVars(v *viper.Viper) {
 		v.Set("defaults.resolve", false)
 		v.Set("defaults.numeric", true)
 	}
+
+	// Handle SNITCH_DNS_CACHE - if set to "0", disable dns caching
+	if os.Getenv("SNITCH_DNS_CACHE") == "0" {
+		v.Set("defaults.dns_cache", false)
+	}
 }
 
 // Get returns the global configuration, loading it if necessary
@@ -123,7 +130,6 @@ func Get() *Config {
 	if globalConfig == nil {
 		config, err := Load()
 		if err != nil {
-			// Return default config on error
 			return &Config{
 				Defaults: DefaultConfig{
 					Interval:     "1s",
@@ -133,6 +139,7 @@ func Get() *Config {
 					Units:        "auto",
 					Color:        "auto",
 					Resolve:      true,
+					DNSCache:     true,
 					IPv4:         false,
 					IPv6:         false,
 					NoHeaders:    false,

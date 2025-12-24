@@ -64,6 +64,7 @@ type Options struct {
 	FilterSet    bool // true if user specified any filter flags
 	ResolveAddrs bool // when true, resolve IP addresses to hostnames
 	ResolvePorts bool // when true, resolve port numbers to service names
+	NoCache      bool // when true, disable DNS caching
 }
 
 func New(opts Options) model {
