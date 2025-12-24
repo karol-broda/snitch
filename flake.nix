@@ -106,5 +106,12 @@
       overlays.default = final: _prev: {
         snitch = mkSnitch final;
       };
+
+      homeManagerModules.default = import ./nix/hm-module.nix;
+      homeManagerModules.snitch = self.homeManagerModules.default;
+
+      # alias for flake-parts compatibility
+      homeModules.default = self.homeManagerModules.default;
+      homeModules.snitch = self.homeManagerModules.default;
     };
 }
