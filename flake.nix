@@ -11,12 +11,12 @@
       # go 1.25 binary derivation (required until nixpkgs ships it)
       mkGo125 = pkgs:
         let
-          version = "1.25.0";
+          version = "1.25.5";
           platform = {
-            "x86_64-linux" = { suffix = "linux-amd64"; hash = "sha256-KFKvDLIKExObNEiZLmm4aOUO0Pih5ZQO4d6eGaEjthM="; GOOS = "linux"; GOARCH = "amd64"; };
-            "aarch64-linux" = { suffix = "linux-arm64"; hash = "sha256-Bd511plKJ4NpmBXuVTvVqTJ9i3mZHeNuOLZoYngvVK4="; GOOS = "linux"; GOARCH = "arm64"; };
-            "x86_64-darwin" = { suffix = "darwin-amd64"; hash = "sha256-W9YOgjA3BiwjB8cegRGAmGURZxTW9rQQWXz1B139gO8="; GOOS = "darwin"; GOARCH = "amd64"; };
-            "aarch64-darwin" = { suffix = "darwin-arm64"; hash = "sha256-VEkyhEFW2Bcveij3fyrJwVojBGaYtiQ/YzsKCwDAdJw="; GOOS = "darwin"; GOARCH = "arm64"; };
+            "x86_64-linux" = { suffix = "linux-amd64"; hash = "sha256-npt1XWOzas8wwSqaP8N5JDcUwcbT3XKGHaY38zbrs1s="; GOOS = "linux"; GOARCH = "amd64"; };
+            "aarch64-linux" = { suffix = "linux-arm64"; hash = "sha256-sAtpSQPRJsWIw3jnLTVFVJk105gmNbo/epZMn6I/47k="; GOOS = "linux"; GOARCH = "arm64"; };
+            "x86_64-darwin" = { suffix = "darwin-amd64"; hash = "sha256-tp1RvOWZ5TgalM4VJjrmROyEZnpc4j1Y3C5j4sEqn1Y="; GOOS = "darwin"; GOARCH = "amd64"; };
+            "aarch64-darwin" = { suffix = "darwin-arm64"; hash = "sha256-vtjr6CTj07J+hHHRMH+AP8arjh0Ot6SuGWl5vZuAHdM="; GOOS = "darwin"; GOARCH = "arm64"; };
           }.${pkgs.stdenv.hostPlatform.system} or (throw "unsupported system: ${pkgs.stdenv.hostPlatform.system}");
         in
         pkgs.stdenv.mkDerivation {

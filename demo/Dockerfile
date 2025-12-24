@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # build stage - compile snitch
-FROM golang:1.25.0-bookworm AS builder
+FROM golang:1.25-trixie AS builder
 WORKDIR /src
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
