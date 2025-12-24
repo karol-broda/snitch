@@ -91,15 +91,17 @@ func (r *Resolver) ResolvePort(port int, proto string) string {
 
 	cacheKey := strconv.Itoa(port) + "/" + proto
 
-	// Check cache first
-	r.mutex.RLock()
-	if cached, exists := r.cache[cacheKey]; exists {
+	// check cache first (unless caching is disabled)
+	if !r.noCache {
+		r.mutex.RLock()
+		if cached, exists := r.cache[cacheKey]; exists {
+			r.mutex.RUnlock()
+			return cached
+		}
 		r.mutex.RUnlock()
-		return cached
 	}
-	r.mutex.RUnlock()
 
-	// Perform resolution with timeout
+	// perform resolution with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 
@@ -107,16 +109,18 @@ func (r *Resolver) ResolvePort(port int, proto string) string {
 
 	resolved := strconv.Itoa(port) // fallback to port number
 	if err == nil && service != 0 {
-		// Try to get service name
+		// try to get service name
 		if serviceName := getServiceName(port, proto); serviceName != "" {
 			resolved = serviceName
 		}
 	}
 
-	// Cache the result
-	r.mutex.Lock()
-	r.cache[cacheKey] = resolved
-	r.mutex.Unlock()
+	// cache the result (unless caching is disabled)
+	if !r.noCache {
+		r.mutex.Lock()
+		r.cache[cacheKey] = resolved
+		r.mutex.Unlock()
+	}
 
 	return resolved
 }

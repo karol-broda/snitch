@@ -4,12 +4,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/karol-broda/snitch/internal/config"
-	"github.com/karol-broda/snitch/internal/resolver"
-	"github.com/karol-broda/snitch/internal/tui"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/karol-broda/snitch/internal/config"
+	"github.com/karol-broda/snitch/internal/resolver"
 	"github.com/karol-broda/snitch/internal/tui"
 	"github.com/spf13/cobra"
 )
