@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/karol-broda/snitch/internal/theme"
 	"github.com/spf13/viper"
 )
 
@@ -93,7 +95,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("defaults.interval", "1s")
 	v.SetDefault("defaults.numeric", false)
 	v.SetDefault("defaults.fields", []string{"pid", "process", "user", "proto", "state", "laddr", "lport", "raddr", "rport"})
-	v.SetDefault("defaults.theme", "auto")
+	v.SetDefault("defaults.theme", "ansi")
 	v.SetDefault("defaults.units", "auto")
 	v.SetDefault("defaults.color", "auto")
 	v.SetDefault("defaults.resolve", true)
@@ -133,7 +135,7 @@ func Get() *Config {
 					Interval:     "1s",
 					Numeric:      false,
 					Fields:       []string{"pid", "process", "user", "proto", "state", "laddr", "lport", "raddr", "rport"},
-					Theme:        "auto",
+					Theme:        "ansi",
 					Units:        "auto",
 					Color:        "auto",
 					Resolve:      true,
@@ -161,7 +163,9 @@ func (c *Config) GetInterval() time.Duration {
 
 // CreateExampleConfig creates an example configuration file
 func CreateExampleConfig(path string) error {
-	exampleConfig := `# snitch configuration file
+	themeList := strings.Join(theme.ListThemes(), ", ")
+
+	exampleConfig := fmt.Sprintf(`# snitch configuration file
 # See https://github.com/you/snitch for full documentation
 
 [defaults]
@@ -174,8 +178,9 @@ numeric = false
 # Default fields to display (comma-separated list)
 fields = ["pid", "process", "user", "proto", "state", "laddr", "lport", "raddr", "rport"]
 
-# Default theme for TUI (dark, light, mono, auto)
-theme = "auto"
+# Default theme for TUI (ansi inherits terminal colors)
+# Available: %s
+theme = "%s"
 
 # Default units for byte display (auto, si, iec)
 units = "auto"
@@ -194,17 +199,17 @@ ipv6 = false
 no_headers = false
 output_format = "table"
 sort_by = ""
-`
+`, themeList, theme.DefaultTheme)
 
 	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
-	
+
 	// Write config file
 	if err := os.WriteFile(path, []byte(exampleConfig), 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
-	
+
 	return nil
 }

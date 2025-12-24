@@ -2,11 +2,15 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 )
+
+var debugTiming = os.Getenv("SNITCH_DEBUG_TIMING") != ""
 
 // Resolver handles DNS and service name resolution with caching and timeouts
 type Resolver struct {
@@ -49,6 +53,7 @@ func (r *Resolver) ResolveAddr(addr string) string {
 	}
 
 	// perform resolution with timeout
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 
@@ -61,6 +66,11 @@ func (r *Resolver) ResolveAddr(addr string) string {
 		if len(resolved) > 0 && resolved[len(resolved)-1] == '.' {
 			resolved = resolved[:len(resolved)-1]
 		}
+	}
+
+	elapsed := time.Since(start)
+	if debugTiming && elapsed > 50*time.Millisecond {
+		fmt.Fprintf(os.Stderr, "[timing] slow DNS lookup: %s -> %s (%v)\n", addr, resolved, elapsed)
 	}
 
 	// cache the result (unless caching is disabled)
