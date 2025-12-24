@@ -6,13 +6,29 @@ a friendlier `ss` / `netstat` for humans. inspect network connections with a cle
 
 ## install
 
+### homebrew
+
+```bash
+brew install snitch
+```
+
+> thanks to [@bevanjkay](https://github.com/bevanjkay) for adding snitch to homebrew-core
+
 ### go
 
 ```bash
 go install github.com/karol-broda/snitch@latest
 ```
 
-### nixos / nix
+### nixpkgs
+
+```bash
+nix-env -iA nixpkgs.snitch
+```
+
+> thanks to [@DieracDelta](https://github.com/DieracDelta) for adding snitch to nixpkgs
+
+### nixos / nix (flake)
 
 ```bash
 # try it
