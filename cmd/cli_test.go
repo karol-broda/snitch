@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/karol-broda/snitch/internal/errutil"
 	"github.com/karol-broda/snitch/internal/testutil"
 )
 
@@ -407,16 +408,16 @@ func TestEnvironmentVariables(t *testing.T) {
 		oldEnvVars := make(map[string]string)
 		for key, value := range tt.envVars {
 			oldEnvVars[key] = os.Getenv(key)
-			os.Setenv(key, value)
+			errutil.Setenv(key, value)
 		}
 
 		// Clean up environment variables
 		defer func() {
 			for key, oldValue := range oldEnvVars {
 				if oldValue == "" {
-					os.Unsetenv(key)
+					errutil.Unsetenv(key)
 				} else {
-					os.Setenv(key, oldValue)
+					errutil.Setenv(key, oldValue)
 				}
 			}
 		}()

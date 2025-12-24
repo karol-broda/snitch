@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/karol-broda/snitch/internal/collector"
+	"github.com/karol-broda/snitch/internal/errutil"
 )
 
 // TestCollector wraps MockCollector for use in tests
@@ -47,13 +48,13 @@ func SetupTestEnvironment(t *testing.T) (string, func()) {
 	oldConfig := os.Getenv("SNITCH_CONFIG")
 	oldNoColor := os.Getenv("SNITCH_NO_COLOR")
 	
-	os.Setenv("SNITCH_NO_COLOR", "1") // Disable colors in tests
+	errutil.Setenv("SNITCH_NO_COLOR", "1")
 	
 	// Cleanup function
 	cleanup := func() {
-		os.RemoveAll(tempDir)
-		os.Setenv("SNITCH_CONFIG", oldConfig)
-		os.Setenv("SNITCH_NO_COLOR", oldNoColor)
+		errutil.RemoveAll(tempDir)
+		errutil.Setenv("SNITCH_CONFIG", oldConfig)
+		errutil.Setenv("SNITCH_NO_COLOR", oldNoColor)
 	}
 	
 	return tempDir, cleanup
@@ -192,8 +193,8 @@ func (oc *OutputCapture) Stop() (string, string, error) {
 	os.Stderr = oc.oldStderr
 	
 	// Close files
-	oc.stdout.Close()
-	oc.stderr.Close()
+	errutil.Close(oc.stdout)
+	errutil.Close(oc.stderr)
 	
 	// Read captured content
 	stdoutContent, err := os.ReadFile(oc.stdoutFile)
@@ -207,9 +208,9 @@ func (oc *OutputCapture) Stop() (string, string, error) {
 	}
 	
 	// Cleanup
-	os.Remove(oc.stdoutFile)
-	os.Remove(oc.stderrFile)
-	os.Remove(filepath.Dir(oc.stdoutFile))
+	errutil.Remove(oc.stdoutFile)
+	errutil.Remove(oc.stderrFile)
+	errutil.Remove(filepath.Dir(oc.stdoutFile))
 	
 	return string(stdoutContent), string(stderrContent), nil
 }

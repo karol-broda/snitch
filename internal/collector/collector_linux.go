@@ -14,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/karol-broda/snitch/internal/errutil"
 )
 
 // set SNITCH_DEBUG_TIMING=1 to enable timing diagnostics
@@ -138,7 +140,7 @@ func buildInodeToProcessMap() (map[int64]*processInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer procDir.Close()
+	defer errutil.Close(procDir)
 
 	entries, err := procDir.Readdir(-1)
 	if err != nil {
@@ -278,7 +280,7 @@ func getProcessInfo(pid int) (*processInfo, error) {
 	if err != nil {
 		return info, nil
 	}
-	defer statusFile.Close()
+	defer errutil.Close(statusFile)
 
 	scanner := bufio.NewScanner(statusFile)
 	for scanner.Scan() {
@@ -304,7 +306,7 @@ func parseProcNet(path, proto string, ipVersion int, inodeMap map[int64]*process
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer errutil.Close(file)
 
 	var connections []Connection
 	scanner := bufio.NewScanner(file)
@@ -473,7 +475,7 @@ func GetUnixSockets() ([]Connection, error) {
 	if err != nil {
 		return connections, nil
 	}
-	defer file.Close()
+	defer errutil.Close(file)
 
 	scanner := bufio.NewScanner(file)
 	scanner.Scan()
