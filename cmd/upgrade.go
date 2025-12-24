@@ -18,6 +18,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"github.com/karol-broda/snitch/internal/errutil"
 	"github.com/karol-broda/snitch/internal/tui"
 )
 
@@ -93,13 +94,13 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	if currentClean == latestClean {
 		green := color.New(color.FgGreen)
-		green.Println(tui.SymbolSuccess + " you are running the latest version")
+		errutil.Println(green, tui.SymbolSuccess+" you are running the latest version")
 		return nil
 	}
 
 	if current == "dev" {
 		yellow := color.New(color.FgYellow)
-		yellow.Println(tui.SymbolWarning + " you are running a development build")
+		errutil.Println(yellow, tui.SymbolWarning+" you are running a development build")
 		fmt.Println()
 		fmt.Println("use one of the methods below to install a release version:")
 		fmt.Println()
@@ -108,7 +109,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	green := color.New(color.FgGreen, color.Bold)
-	green.Printf(tui.SymbolSuccess+" update available: %s "+tui.SymbolArrowRight+" %s\n", current, latest)
+	errutil.Printf(green, tui.SymbolSuccess+" update available: %s "+tui.SymbolArrowRight+" %s\n", current, latest)
 	fmt.Println()
 
 	if !upgradeYes {
@@ -116,8 +117,8 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 		faint := color.New(color.Faint)
 		cmdStyle := color.New(color.FgCyan)
-		faint.Print("  in-place      ")
-		cmdStyle.Println("snitch upgrade --yes")
+		errutil.Print(faint, "  in-place      ")
+		errutil.Println(cmdStyle, "snitch upgrade --yes")
 		return nil
 	}
 
@@ -134,17 +135,17 @@ func handleSpecificVersion(current, target string) error {
 
 	if isVersionLower(targetClean, firstUpgradeVersion) {
 		yellow := color.New(color.FgYellow)
-		yellow.Printf(tui.SymbolWarning+" warning: the upgrade command was introduced in v%s\n", firstUpgradeVersion)
+		errutil.Printf(yellow, tui.SymbolWarning+" warning: the upgrade command was introduced in v%s\n", firstUpgradeVersion)
 		faint := color.New(color.Faint)
-		faint.Printf("  version %s does not include this command\n", target)
-		faint.Println("  you will need to use other methods to upgrade from that version")
+		errutil.Printf(faint, "  version %s does not include this command\n", target)
+		errutil.Println(faint, "  you will need to use other methods to upgrade from that version")
 		fmt.Println()
 	}
 
 	currentClean := strings.TrimPrefix(current, "v")
 	if currentClean == targetClean {
 		green := color.New(color.FgGreen)
-		green.Println(tui.SymbolSuccess + " you are already running this version")
+		errutil.Println(green, tui.SymbolSuccess+" you are already running this version")
 		return nil
 	}
 
@@ -153,15 +154,15 @@ func handleSpecificVersion(current, target string) error {
 		cmdStyle := color.New(color.FgCyan)
 		if isVersionLower(targetClean, currentClean) {
 			yellow := color.New(color.FgYellow)
-			yellow.Printf(tui.SymbolArrowDown+" this will downgrade from %s to %s\n", current, target)
+			errutil.Printf(yellow, tui.SymbolArrowDown+" this will downgrade from %s to %s\n", current, target)
 		} else {
 			green := color.New(color.FgGreen)
-			green.Printf(tui.SymbolArrowUp+" this will upgrade from %s to %s\n", current, target)
+			errutil.Printf(green, tui.SymbolArrowUp+" this will upgrade from %s to %s\n", current, target)
 		}
 		fmt.Println()
-		faint.Print("run ")
-		cmdStyle.Printf("snitch upgrade --version %s --yes", target)
-		faint.Println(" to proceed")
+		errutil.Print(faint, "run ")
+		errutil.Printf(cmdStyle, "snitch upgrade --version %s --yes", target)
+		errutil.Println(faint, " to proceed")
 		return nil
 	}
 
@@ -175,20 +176,20 @@ func handleNixUpgrade(current, latest string) error {
 	currentCommit := extractCommitFromVersion(current)
 	dirty := isNixDirty(current)
 
-	faint.Print("current  ")
-	version.Print(current)
+	errutil.Print(faint, "current  ")
+	errutil.Print(version, current)
 	if currentCommit != "" {
-		faint.Printf(" (commit %s)", currentCommit)
+		errutil.Printf(faint, " (commit %s)", currentCommit)
 	}
 	fmt.Println()
 
-	faint.Print("latest   ")
-	version.Println(latest)
+	errutil.Print(faint, "latest   ")
+	errutil.Println(version, latest)
 	fmt.Println()
 
 	if dirty {
 		yellow := color.New(color.FgYellow)
-		yellow.Println(tui.SymbolWarning + " you are running a dirty nix build (uncommitted changes)")
+		errutil.Println(yellow, tui.SymbolWarning+" you are running a dirty nix build (uncommitted changes)")
 		fmt.Println()
 		printNixUpgradeInstructions()
 		return nil
@@ -196,8 +197,8 @@ func handleNixUpgrade(current, latest string) error {
 
 	if currentCommit == "" {
 		yellow := color.New(color.FgYellow)
-		yellow.Println(tui.SymbolWarning + " this is a nix installation")
-		faint.Println("  nix store is immutable; use nix commands to upgrade")
+		errutil.Println(yellow, tui.SymbolWarning+" this is a nix installation")
+		errutil.Println(faint, "  nix store is immutable; use nix commands to upgrade")
 		fmt.Println()
 		printNixUpgradeInstructions()
 		return nil
@@ -205,11 +206,11 @@ func handleNixUpgrade(current, latest string) error {
 
 	releaseCommit, err := fetchCommitForTag(latest)
 	if err != nil {
-		faint.Printf("  (could not fetch release commit: %v)\n", err)
+		errutil.Printf(faint, "  (could not fetch release commit: %v)\n", err)
 		fmt.Println()
 		yellow := color.New(color.FgYellow)
-		yellow.Println(tui.SymbolWarning + " this is a nix installation")
-		faint.Println("  nix store is immutable; use nix commands to upgrade")
+		errutil.Println(yellow, tui.SymbolWarning+" this is a nix installation")
+		errutil.Println(faint, "  nix store is immutable; use nix commands to upgrade")
 		fmt.Println()
 		printNixUpgradeInstructions()
 		return nil
@@ -222,20 +223,20 @@ func handleNixUpgrade(current, latest string) error {
 
 	if strings.HasPrefix(releaseCommit, currentCommit) || strings.HasPrefix(currentCommit, releaseShort) {
 		green := color.New(color.FgGreen)
-		green.Printf(tui.SymbolSuccess+" you are running %s (commit %s)\n", latest, releaseShort)
+		errutil.Printf(green, tui.SymbolSuccess+" you are running %s (commit %s)\n", latest, releaseShort)
 		return nil
 	}
 
 	comparison, err := compareCommits(latest, currentCommit)
 	if err != nil {
 		green := color.New(color.FgGreen, color.Bold)
-		green.Printf(tui.SymbolSuccess+" update available: %s "+tui.SymbolArrowRight+" %s\n", currentCommit, latest)
-		faint.Printf("  your commit: %s\n", currentCommit)
-		faint.Printf("  release:     %s (%s)\n", releaseShort, latest)
+		errutil.Printf(green, tui.SymbolSuccess+" update available: %s "+tui.SymbolArrowRight+" %s\n", currentCommit, latest)
+		errutil.Printf(faint, "  your commit: %s\n", currentCommit)
+		errutil.Printf(faint, "  release:     %s (%s)\n", releaseShort, latest)
 		fmt.Println()
 		yellow := color.New(color.FgYellow)
-		yellow.Println(tui.SymbolWarning + " this is a nix installation")
-		faint.Println("  nix store is immutable; use nix commands to upgrade")
+		errutil.Println(yellow, tui.SymbolWarning+" this is a nix installation")
+		errutil.Println(faint, "  nix store is immutable; use nix commands to upgrade")
 		fmt.Println()
 		printNixUpgradeInstructions()
 		return nil
@@ -243,30 +244,30 @@ func handleNixUpgrade(current, latest string) error {
 
 	if comparison.AheadBy > 0 {
 		cyan := color.New(color.FgCyan)
-		cyan.Printf(tui.SymbolArrowUp+" you are %d commit(s) ahead of %s\n", comparison.AheadBy, latest)
-		faint.Printf("  your commit: %s\n", currentCommit)
-		faint.Printf("  release:     %s (%s)\n", releaseShort, latest)
+		errutil.Printf(cyan, tui.SymbolArrowUp+" you are %d commit(s) ahead of %s\n", comparison.AheadBy, latest)
+		errutil.Printf(faint, "  your commit: %s\n", currentCommit)
+		errutil.Printf(faint, "  release:     %s (%s)\n", releaseShort, latest)
 		fmt.Println()
-		faint.Println("you are running a newer build than the latest release")
+		errutil.Println(faint, "you are running a newer build than the latest release")
 		return nil
 	}
 
 	if comparison.BehindBy > 0 {
 		green := color.New(color.FgGreen, color.Bold)
-		green.Printf(tui.SymbolSuccess+" update available: %d commit(s) behind %s\n", comparison.BehindBy, latest)
-		faint.Printf("  your commit: %s\n", currentCommit)
-		faint.Printf("  release:     %s (%s)\n", releaseShort, latest)
+		errutil.Printf(green, tui.SymbolSuccess+" update available: %d commit(s) behind %s\n", comparison.BehindBy, latest)
+		errutil.Printf(faint, "  your commit: %s\n", currentCommit)
+		errutil.Printf(faint, "  release:     %s (%s)\n", releaseShort, latest)
 		fmt.Println()
 		yellow := color.New(color.FgYellow)
-		yellow.Println(tui.SymbolWarning + " this is a nix installation")
-		faint.Println("  nix store is immutable; use nix commands to upgrade")
+		errutil.Println(yellow, tui.SymbolWarning+" this is a nix installation")
+		errutil.Println(faint, "  nix store is immutable; use nix commands to upgrade")
 		fmt.Println()
 		printNixUpgradeInstructions()
 		return nil
 	}
 
 	green := color.New(color.FgGreen)
-	green.Printf(tui.SymbolSuccess+" you are running %s (commit %s)\n", latest, releaseShort)
+	errutil.Printf(green, tui.SymbolSuccess+" you are running %s (commit %s)\n", latest, releaseShort)
 	return nil
 }
 
@@ -278,22 +279,22 @@ func handleNixSpecificVersion(current, target string) error {
 	printVersionComparisonTarget(current, target)
 
 	yellow := color.New(color.FgYellow)
-	yellow.Println(tui.SymbolWarning + " this is a nix installation")
+	errutil.Println(yellow, tui.SymbolWarning+" this is a nix installation")
 	faint := color.New(color.Faint)
-	faint.Println("  nix store is immutable; in-place upgrades are not supported")
+	errutil.Println(faint, "  nix store is immutable; in-place upgrades are not supported")
 	fmt.Println()
 
 	bold := color.New(color.Bold)
 	cmd := color.New(color.FgCyan)
 
-	bold.Println("to install a specific version with nix:")
+	errutil.Println(bold, "to install a specific version with nix:")
 	fmt.Println()
 
-	faint.Print("  specific ref    ")
-	cmd.Printf("nix profile install github:%s/%s/%s\n", repoOwner, repoName, target)
+	errutil.Print(faint, "  specific ref    ")
+	errutil.Printf(cmd, "nix profile install github:%s/%s/%s\n", repoOwner, repoName, target)
 
-	faint.Print("  latest          ")
-	cmd.Printf("nix profile install github:%s/%s\n", repoOwner, repoName)
+	errutil.Print(faint, "  latest          ")
+	errutil.Printf(cmd, "nix profile install github:%s/%s\n", repoOwner, repoName)
 
 	return nil
 }
@@ -333,7 +334,7 @@ func fetchLatestVersion() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer errutil.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("github api returned status %d", resp.StatusCode)
@@ -355,10 +356,10 @@ func printVersionComparison(current, latest string) {
 	faint := color.New(color.Faint)
 	version := color.New(color.FgCyan)
 
-	faint.Print("current  ")
-	version.Println(current)
-	faint.Print("latest   ")
-	version.Println(latest)
+	errutil.Print(faint, "current  ")
+	errutil.Println(version, current)
+	errutil.Print(faint, "latest   ")
+	errutil.Println(version, latest)
 	fmt.Println()
 }
 
@@ -366,10 +367,10 @@ func printVersionComparisonTarget(current, target string) {
 	faint := color.New(color.Faint)
 	version := color.New(color.FgCyan)
 
-	faint.Print("current  ")
-	version.Println(current)
-	faint.Print("target   ")
-	version.Println(target)
+	errutil.Print(faint, "current  ")
+	errutil.Println(version, current)
+	errutil.Print(faint, "target   ")
+	errutil.Println(version, target)
 	fmt.Println()
 }
 
@@ -378,20 +379,20 @@ func printUpgradeInstructions() {
 	faint := color.New(color.Faint)
 	cmd := color.New(color.FgCyan)
 
-	bold.Println("upgrade options:")
+	errutil.Println(bold, "upgrade options:")
 	fmt.Println()
 
-	faint.Print("  go install    ")
-	cmd.Printf("go install github.com/%s/%s@latest\n", repoOwner, repoName)
+	errutil.Print(faint, "  go install    ")
+	errutil.Printf(cmd, "go install github.com/%s/%s@latest\n", repoOwner, repoName)
 
-	faint.Print("  shell script  ")
-	cmd.Printf("curl -sSL https://raw.githubusercontent.com/%s/%s/master/install.sh | sh\n", repoOwner, repoName)
+	errutil.Print(faint, "  shell script  ")
+	errutil.Printf(cmd, "curl -sSL https://raw.githubusercontent.com/%s/%s/master/install.sh | sh\n", repoOwner, repoName)
 
-	faint.Print("  arch (aur)    ")
-	cmd.Println("yay -S snitch-bin")
+	errutil.Print(faint, "  arch (aur)    ")
+	errutil.Println(cmd, "yay -S snitch-bin")
 
-	faint.Print("  nix           ")
-	cmd.Printf("nix profile upgrade --inputs-from github:%s/%s\n", repoOwner, repoName)
+	errutil.Print(faint, "  nix           ")
+	errutil.Printf(cmd, "nix profile upgrade --inputs-from github:%s/%s\n", repoOwner, repoName)
 }
 
 func performUpgrade(version string) error {
@@ -407,7 +408,7 @@ func performUpgrade(version string) error {
 
 	if strings.HasPrefix(execPath, "/nix/store/") {
 		yellow := color.New(color.FgYellow)
-		yellow.Println(tui.SymbolWarning + " cannot perform in-place upgrade for nix installation")
+		errutil.Println(yellow, tui.SymbolWarning+" cannot perform in-place upgrade for nix installation")
 		fmt.Println()
 		printNixUpgradeInstructions()
 		return nil
@@ -423,15 +424,15 @@ func performUpgrade(version string) error {
 
 	faint := color.New(color.Faint)
 	cyan := color.New(color.FgCyan)
-	faint.Print(tui.SymbolDownload + " downloading ")
-	cyan.Printf("%s", archiveName)
-	faint.Println("...")
+	errutil.Print(faint, tui.SymbolDownload+" downloading ")
+	errutil.Printf(cyan, "%s", archiveName)
+	errutil.Println(faint, "...")
 
 	resp, err := http.Get(downloadURL)
 	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
 	}
-	defer resp.Body.Close()
+	defer errutil.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download failed with status %d", resp.StatusCode)
@@ -441,7 +442,7 @@ func performUpgrade(version string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer errutil.RemoveAll(tmpDir)
 
 	binaryPath, err := extractBinaryFromTarGz(resp.Body, tmpDir)
 	if err != nil {
@@ -458,14 +459,14 @@ func performUpgrade(version string) error {
 		yellow := color.New(color.FgYellow)
 		cmdStyle := color.New(color.FgCyan)
 
-		yellow.Printf(tui.SymbolWarning+" elevated permissions required to install to %s\n", targetDir)
+		errutil.Printf(yellow, tui.SymbolWarning+" elevated permissions required to install to %s\n", targetDir)
 		fmt.Println()
-		faint.Println("run with sudo or install to a user-writable location:")
+		errutil.Println(faint, "run with sudo or install to a user-writable location:")
 		fmt.Println()
-		faint.Print("  sudo         ")
-		cmdStyle.Println("sudo snitch upgrade --yes")
-		faint.Print("  custom dir   ")
-		cmdStyle.Printf("curl -sSL https://raw.githubusercontent.com/%s/%s/master/install.sh | INSTALL_DIR=~/.local/bin sh\n",
+		errutil.Print(faint, "  sudo         ")
+		errutil.Println(cmdStyle, "sudo snitch upgrade --yes")
+		errutil.Print(faint, "  custom dir   ")
+		errutil.Printf(cmdStyle, "curl -sSL https://raw.githubusercontent.com/%s/%s/master/install.sh | INSTALL_DIR=~/.local/bin sh\n",
 			repoOwner, repoName)
 		return nil
 	}
@@ -491,11 +492,11 @@ func performUpgrade(version string) error {
 	if err := os.Remove(backupPath); err != nil {
 		// non-fatal, just warn
 		yellow := color.New(color.FgYellow)
-		yellow.Fprintf(os.Stderr, tui.SymbolWarning + " warning: failed to remove backup file %s: %v\n", backupPath, err)
+		errutil.Fprintf(yellow, os.Stderr, tui.SymbolWarning+" warning: failed to remove backup file %s: %v\n", backupPath, err)
 	}
 
 	green := color.New(color.FgGreen, color.Bold)
-	green.Printf(tui.SymbolSuccess + " successfully upgraded to %s\n", version)
+	errutil.Printf(green, tui.SymbolSuccess+" successfully upgraded to %s\n", version)
 	return nil
 }
 
@@ -504,7 +505,7 @@ func extractBinaryFromTarGz(r io.Reader, destDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer gzr.Close()
+	defer errutil.Close(gzr)
 
 	tr := tar.NewReader(gzr)
 
@@ -534,10 +535,10 @@ func extractBinaryFromTarGz(r io.Reader, destDir string) (string, error) {
 		}
 
 		if _, err := io.Copy(outFile, tr); err != nil {
-			outFile.Close()
+			errutil.Close(outFile)
 			return "", err
 		}
-		outFile.Close()
+		errutil.Close(outFile)
 
 		return destPath, nil
 	}
@@ -551,8 +552,8 @@ func isWritable(path string) bool {
 	if err != nil {
 		return false
 	}
-	f.Close()
-	os.Remove(testFile)
+	errutil.Close(f)
+	errutil.Remove(testFile)
 	return true
 }
 
@@ -561,13 +562,13 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer errutil.Close(srcFile)
 
 	dstFile, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	defer errutil.Close(dstFile)
 
 	if _, err := io.Copy(dstFile, srcFile); err != nil {
 		return err
@@ -580,7 +581,7 @@ func removeQuarantine(path string) {
 	cmd := exec.Command("xattr", "-d", "com.apple.quarantine", path)
 	if err := cmd.Run(); err == nil {
 		faint := color.New(color.Faint)
-		faint.Println("  removed macOS quarantine attribute")
+		errutil.Println(faint, "  removed macOS quarantine attribute")
 	}
 }
 
@@ -633,7 +634,7 @@ func fetchCommitForTag(tag string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer errutil.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("github api returned status %d", resp.StatusCode)
@@ -654,7 +655,7 @@ func compareCommits(base, head string) (*githubCompare, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer errutil.Close(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("github api returned status %d", resp.StatusCode)
@@ -673,16 +674,16 @@ func printNixUpgradeInstructions() {
 	faint := color.New(color.Faint)
 	cmd := color.New(color.FgCyan)
 
-	bold.Println("nix upgrade options:")
+	errutil.Println(bold, "nix upgrade options:")
 	fmt.Println()
 
-	faint.Print("  flake profile   ")
-	cmd.Printf("nix profile install github:%s/%s\n", repoOwner, repoName)
+	errutil.Print(faint, "  flake profile   ")
+	errutil.Printf(cmd, "nix profile install github:%s/%s\n", repoOwner, repoName)
 
-	faint.Print("  flake update    ")
-	cmd.Println("nix flake update snitch  (in your system/home-manager config)")
+	errutil.Print(faint, "  flake update    ")
+	errutil.Println(cmd, "nix flake update snitch  (in your system/home-manager config)")
 
-	faint.Print("  rebuild         ")
-	cmd.Println("nixos-rebuild switch  or  home-manager switch")
+	errutil.Print(faint, "  rebuild         ")
+	errutil.Println(cmd, "nixos-rebuild switch  or  home-manager switch")
 }
 

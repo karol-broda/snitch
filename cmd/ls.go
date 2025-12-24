@@ -8,16 +8,18 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"github.com/karol-broda/snitch/internal/collector"
-	"github.com/karol-broda/snitch/internal/color"
-	"github.com/karol-broda/snitch/internal/config"
-	"github.com/karol-broda/snitch/internal/resolver"
 	"strconv"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
+
+	"github.com/karol-broda/snitch/internal/collector"
+	"github.com/karol-broda/snitch/internal/color"
+	"github.com/karol-broda/snitch/internal/config"
+	"github.com/karol-broda/snitch/internal/errutil"
+	"github.com/karol-broda/snitch/internal/resolver"
 	"github.com/tidwall/pretty"
 	"golang.org/x/term"
 )
@@ -185,7 +187,7 @@ func printCSV(conns []collector.Connection, headers bool, timestamp bool, select
 
 func printPlainTable(conns []collector.Connection, headers bool, timestamp bool, selectedFields []string) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	defer w.Flush()
+	defer errutil.Flush(w)
 
 	if len(selectedFields) == 0 {
 		selectedFields = []string{"pid", "process", "user", "proto", "state", "laddr", "lport", "raddr", "rport"}
@@ -199,7 +201,7 @@ func printPlainTable(conns []collector.Connection, headers bool, timestamp bool,
 		for _, field := range selectedFields {
 			headerRow = append(headerRow, strings.ToUpper(field))
 		}
-		fmt.Fprintln(w, strings.Join(headerRow, "\t"))
+		errutil.Ignore(fmt.Fprintln(w, strings.Join(headerRow, "\t")))
 	}
 
 	for _, conn := range conns {
@@ -208,7 +210,7 @@ func printPlainTable(conns []collector.Connection, headers bool, timestamp bool,
 		for _, field := range selectedFields {
 			row = append(row, fieldMap[field])
 		}
-		fmt.Fprintln(w, strings.Join(row, "\t"))
+		errutil.Ignore(fmt.Fprintln(w, strings.Join(row, "\t")))
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/fatih/color"
+
+	"github.com/karol-broda/snitch/internal/errutil"
 )
 
 func TestInit(t *testing.T) {
@@ -29,8 +31,8 @@ func TestInit(t *testing.T) {
 			origTerm := os.Getenv("TERM")
 
 			// Set test env vars
-			os.Setenv("NO_COLOR", tc.noColor)
-			os.Setenv("TERM", tc.term)
+			errutil.Setenv("NO_COLOR", tc.noColor)
+			errutil.Setenv("TERM", tc.term)
 
 			Init(tc.mode)
 
@@ -39,8 +41,8 @@ func TestInit(t *testing.T) {
 			}
 
 			// Restore original env vars
-			os.Setenv("NO_COLOR", origNoColor)
-			os.Setenv("TERM", origTerm)
+			errutil.Setenv("NO_COLOR", origNoColor)
+			errutil.Setenv("TERM", origTerm)
 		})
 	}
 }

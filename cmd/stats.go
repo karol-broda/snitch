@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"github.com/karol-broda/snitch/internal/collector"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +16,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/karol-broda/snitch/internal/collector"
+	"github.com/karol-broda/snitch/internal/errutil"
 )
 
 type StatsData struct {
@@ -227,19 +229,19 @@ func printStatsCSV(stats *StatsData, headers bool) {
 
 func printStatsTable(stats *StatsData, headers bool) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	defer w.Flush()
+	defer errutil.Flush(w)
 
 	if headers {
-		fmt.Fprintf(w, "TIMESTAMP\t%s\n", stats.Timestamp.Format(time.RFC3339))
-		fmt.Fprintf(w, "TOTAL CONNECTIONS\t%d\n", stats.Total)
-		fmt.Fprintln(w)
+		errutil.Ignore(fmt.Fprintf(w, "TIMESTAMP\t%s\n", stats.Timestamp.Format(time.RFC3339)))
+		errutil.Ignore(fmt.Fprintf(w, "TOTAL CONNECTIONS\t%d\n", stats.Total))
+		errutil.Ignore(fmt.Fprintln(w))
 	}
 
 	// Protocol breakdown
 	if len(stats.ByProto) > 0 {
 		if headers {
-			fmt.Fprintln(w, "BY PROTOCOL:")
-			fmt.Fprintln(w, "PROTO\tCOUNT")
+			errutil.Ignore(fmt.Fprintln(w, "BY PROTOCOL:"))
+			errutil.Ignore(fmt.Fprintln(w, "PROTO\tCOUNT"))
 		}
 		protocols := make([]string, 0, len(stats.ByProto))
 		for proto := range stats.ByProto {
@@ -247,16 +249,16 @@ func printStatsTable(stats *StatsData, headers bool) {
 		}
 		sort.Strings(protocols)
 		for _, proto := range protocols {
-			fmt.Fprintf(w, "%s\t%d\n", strings.ToUpper(proto), stats.ByProto[proto])
+			errutil.Ignore(fmt.Fprintf(w, "%s\t%d\n", strings.ToUpper(proto), stats.ByProto[proto]))
 		}
-		fmt.Fprintln(w)
+		errutil.Ignore(fmt.Fprintln(w))
 	}
 
 	// State breakdown
 	if len(stats.ByState) > 0 {
 		if headers {
-			fmt.Fprintln(w, "BY STATE:")
-			fmt.Fprintln(w, "STATE\tCOUNT")
+			errutil.Ignore(fmt.Fprintln(w, "BY STATE:"))
+			errutil.Ignore(fmt.Fprintln(w, "STATE\tCOUNT"))
 		}
 		states := make([]string, 0, len(stats.ByState))
 		for state := range stats.ByState {
@@ -264,16 +266,16 @@ func printStatsTable(stats *StatsData, headers bool) {
 		}
 		sort.Strings(states)
 		for _, state := range states {
-			fmt.Fprintf(w, "%s\t%d\n", state, stats.ByState[state])
+			errutil.Ignore(fmt.Fprintf(w, "%s\t%d\n", state, stats.ByState[state]))
 		}
-		fmt.Fprintln(w)
+		errutil.Ignore(fmt.Fprintln(w))
 	}
 
 	// Process breakdown (top 10)
 	if len(stats.ByProc) > 0 {
 		if headers {
-			fmt.Fprintln(w, "BY PROCESS (TOP 10):")
-			fmt.Fprintln(w, "PID\tPROCESS\tCOUNT")
+			errutil.Ignore(fmt.Fprintln(w, "BY PROCESS (TOP 10):"))
+			errutil.Ignore(fmt.Fprintln(w, "PID\tPROCESS\tCOUNT"))
 		}
 		limit := 10
 		if len(stats.ByProc) < limit {
@@ -281,7 +283,7 @@ func printStatsTable(stats *StatsData, headers bool) {
 		}
 		for i := 0; i < limit; i++ {
 			proc := stats.ByProc[i]
-			fmt.Fprintf(w, "%d\t%s\t%d\n", proc.PID, proc.Process, proc.Count)
+			errutil.Ignore(fmt.Fprintf(w, "%d\t%s\t%d\n", proc.PID, proc.Process, proc.Count))
 		}
 	}
 }

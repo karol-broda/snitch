@@ -6,6 +6,8 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+
+	"github.com/karol-broda/snitch/internal/errutil"
 )
 
 var (
@@ -22,20 +24,20 @@ var versionCmd = &cobra.Command{
 		cyan := color.New(color.FgCyan)
 		faint := color.New(color.Faint)
 
-		bold.Print("snitch ")
-		cyan.Println(Version)
+		errutil.Print(bold, "snitch ")
+		errutil.Println(cyan, Version)
 		fmt.Println()
 
-		faint.Print("  commit  ")
+		errutil.Print(faint, "  commit  ")
 		fmt.Println(Commit)
 
-		faint.Print("  built   ")
+		errutil.Print(faint, "  built   ")
 		fmt.Println(Date)
 
-		faint.Print("  go      ")
+		errutil.Print(faint, "  go      ")
 		fmt.Println(runtime.Version())
 
-		faint.Print("  os      ")
+		errutil.Print(faint, "  os      ")
 		fmt.Printf("%s/%s\n", runtime.GOOS, runtime.GOARCH)
 	},
 }
