@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"log"
-	"github.com/karol-broda/snitch/internal/config"
-	"github.com/karol-broda/snitch/internal/tui"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/karol-broda/snitch/internal/config"
+	"github.com/karol-broda/snitch/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -60,7 +60,7 @@ func init() {
 	cfg := config.Get()
 
 	// top-specific flags
-	topCmd.Flags().StringVar(&topTheme, "theme", cfg.Defaults.Theme, "Theme for TUI (dark, light, mono, auto)")
+	topCmd.Flags().StringVar(&topTheme, "theme", cfg.Defaults.Theme, "Theme for TUI (see 'snitch themes')")
 	topCmd.Flags().DurationVarP(&topInterval, "interval", "i", time.Second, "Refresh interval")
 	topCmd.Flags().BoolVar(&topResolveAddrs, "resolve-addrs", !cfg.Defaults.Numeric, "Resolve IP addresses to hostnames")
 	topCmd.Flags().BoolVar(&topResolvePorts, "resolve-ports", false, "Resolve port numbers to service names")

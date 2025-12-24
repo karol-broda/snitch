@@ -3,10 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"github.com/karol-broda/snitch/internal/config"
 
+	"github.com/karol-broda/snitch/internal/config"
 	"github.com/spf13/cobra"
 )
+
 
 var (
 	cfgFile string
@@ -42,7 +43,7 @@ func init() {
 
 	// add top's flags to root so `snitch -l` works (defaults to top command)
 	cfg := config.Get()
-	rootCmd.Flags().StringVar(&topTheme, "theme", cfg.Defaults.Theme, "Theme for TUI (dark, light, mono, auto)")
+	rootCmd.Flags().StringVar(&topTheme, "theme", cfg.Defaults.Theme, "Theme for TUI (see 'snitch themes')")
 	rootCmd.Flags().DurationVarP(&topInterval, "interval", "i", 0, "Refresh interval (default 1s)")
 	rootCmd.Flags().BoolVar(&topResolveAddrs, "resolve-addrs", !cfg.Defaults.Numeric, "Resolve IP addresses to hostnames")
 	rootCmd.Flags().BoolVar(&topResolvePorts, "resolve-ports", false, "Resolve port numbers to service names")

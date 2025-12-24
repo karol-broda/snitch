@@ -1,6 +1,7 @@
 package theme
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -52,150 +53,71 @@ type StateStyles struct {
 	Closed      lipgloss.Style
 }
 
-var (
-	themes map[string]*Theme
-)
+var themes map[string]*Theme
 
 func init() {
-	themes = map[string]*Theme{
-		"default": createAdaptiveTheme(),
-		"mono":    createMonoTheme(),
-	}
+	themes = make(map[string]*Theme)
+
+	// ansi theme (default) - inherits from terminal colors
+	themes["ansi"] = paletteANSI.ToTheme()
+
+	// catppuccin variants
+	themes["catppuccin-mocha"] = paletteCatppuccinMocha.ToTheme()
+	themes["catppuccin-macchiato"] = paletteCatppuccinMacchiato.ToTheme()
+	themes["catppuccin-frappe"] = paletteCatppuccinFrappe.ToTheme()
+	themes["catppuccin-latte"] = paletteCatppuccinLatte.ToTheme()
+
+	// gruvbox variants
+	themes["gruvbox-dark"] = paletteGruvboxDark.ToTheme()
+	themes["gruvbox-light"] = paletteGruvboxLight.ToTheme()
+
+	// dracula
+	themes["dracula"] = paletteDracula.ToTheme()
+
+	// nord
+	themes["nord"] = paletteNord.ToTheme()
+
+	// tokyo night variants
+	themes["tokyo-night"] = paletteTokyoNight.ToTheme()
+	themes["tokyo-night-storm"] = paletteTokyoNightStorm.ToTheme()
+	themes["tokyo-night-light"] = paletteTokyoNightLight.ToTheme()
+
+	// solarized variants
+	themes["solarized-dark"] = paletteSolarizedDark.ToTheme()
+	themes["solarized-light"] = paletteSolarizedLight.ToTheme()
+
+	// one dark
+	themes["one-dark"] = paletteOneDark.ToTheme()
+
+	// monochrome (no colors)
+	themes["mono"] = createMonoTheme()
 }
 
-// GetTheme returns a theme by name, with auto-detection support
+// DefaultTheme is the theme used when none is specified
+const DefaultTheme = "ansi"
+
+// GetTheme returns a theme by name
 func GetTheme(name string) *Theme {
-	if name == "auto" {
-		// lipgloss handles adaptive colors, so we just return the default
-		return themes["default"]
+	if name == "" || name == "auto" || name == "default" {
+		return themes[DefaultTheme]
 	}
 
 	if theme, exists := themes[name]; exists {
 		return theme
 	}
 
-	// a specific theme was requested (e.g. "dark", "light"), but we now use adaptive
-	// so we can just return the default theme and lipgloss will handle it
-	if name == "dark" || name == "light" {
-		return themes["default"]
-	}
-
 	// fallback to default
-	return themes["default"]
+	return themes[DefaultTheme]
 }
 
-// ListThemes returns available theme names
+// ListThemes returns available theme names sorted alphabetically
 func ListThemes() []string {
-	var names []string
+	names := make([]string, 0, len(themes))
 	for name := range themes {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
-}
-
-// createAdaptiveTheme creates a clean, minimal theme
-func createAdaptiveTheme() *Theme {
-	return &Theme{
-		Name: "default",
-		Styles: Styles{
-			Header: lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.AdaptiveColor{Light: "#1F2937", Dark: "#F9FAFB"}),
-
-			Watched: lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.AdaptiveColor{Light: "#D97706", Dark: "#F59E0B"}),
-
-			Border: lipgloss.NewStyle().
-				Foreground(lipgloss.AdaptiveColor{Light: "#D1D5DB", Dark: "#374151"}),
-
-			Selected: lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.AdaptiveColor{Light: "#1F2937", Dark: "#F9FAFB"}),
-
-			Normal: lipgloss.NewStyle().
-				Foreground(lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#9CA3AF"}),
-
-			Error: lipgloss.NewStyle().
-				Foreground(lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#F87171"}),
-
-			Success: lipgloss.NewStyle().
-				Foreground(lipgloss.AdaptiveColor{Light: "#059669", Dark: "#34D399"}),
-
-			Warning: lipgloss.NewStyle().
-				Foreground(lipgloss.AdaptiveColor{Light: "#D97706", Dark: "#FBBF24"}),
-
-			Footer: lipgloss.NewStyle().
-				Foreground(lipgloss.AdaptiveColor{Light: "#9CA3AF", Dark: "#6B7280"}),
-
-			Background: lipgloss.NewStyle(),
-
-			Proto: ProtoStyles{
-				TCP:  lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#059669", Dark: "#34D399"}),
-				UDP:  lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#7C3AED", Dark: "#A78BFA"}),
-				Unix: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#9CA3AF"}),
-				TCP6: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#059669", Dark: "#34D399"}),
-				UDP6: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#7C3AED", Dark: "#A78BFA"}),
-			},
-
-			State: StateStyles{
-				Listen:      lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#059669", Dark: "#34D399"}),
-				Established: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#2563EB", Dark: "#60A5FA"}),
-				TimeWait:    lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#D97706", Dark: "#FBBF24"}),
-				CloseWait:   lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#D97706", Dark: "#FBBF24"}),
-				SynSent:     lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#7C3AED", Dark: "#A78BFA"}),
-				SynRecv:     lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#7C3AED", Dark: "#A78BFA"}),
-				FinWait1:    lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#F87171"}),
-				FinWait2:    lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#F87171"}),
-				Closing:     lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#F87171"}),
-				LastAck:     lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#F87171"}),
-				Closed:      lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#9CA3AF", Dark: "#6B7280"}),
-			},
-		},
-	}
-}
-
-// createMonoTheme creates a monochrome theme (no colors)
-func createMonoTheme() *Theme {
-	baseStyle := lipgloss.NewStyle()
-	boldStyle := lipgloss.NewStyle().Bold(true)
-
-	return &Theme{
-		Name: "mono",
-		Styles: Styles{
-			Header:     boldStyle,
-			Border:     baseStyle,
-			Selected:   boldStyle,
-			Normal:     baseStyle,
-			Error:      boldStyle,
-			Success:    boldStyle,
-			Warning:    boldStyle,
-			Footer:     baseStyle,
-			Background: baseStyle,
-
-			Proto: ProtoStyles{
-				TCP:  baseStyle,
-				UDP:  baseStyle,
-				Unix: baseStyle,
-				TCP6: baseStyle,
-				UDP6: baseStyle,
-			},
-
-			State: StateStyles{
-				Listen:      baseStyle,
-				Established: baseStyle,
-				TimeWait:    baseStyle,
-				CloseWait:   baseStyle,
-				SynSent:     baseStyle,
-				SynRecv:     baseStyle,
-				FinWait1:    baseStyle,
-				FinWait2:    baseStyle,
-				Closing:     baseStyle,
-				LastAck:     baseStyle,
-				Closed:      baseStyle,
-			},
-		},
-	}
 }
 
 // GetProtoStyle returns the appropriate style for a protocol
