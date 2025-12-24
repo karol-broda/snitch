@@ -167,8 +167,19 @@ shortcut flags work on all commands:
 -e, --established   established connections
 -4, --ipv4          ipv4 only
 -6, --ipv6          ipv6 only
--n, --numeric       no dns resolution
 ```
+
+## resolution
+
+dns and service name resolution options:
+
+```
+--resolve-addrs     resolve ip addresses to hostnames (default: true)
+--resolve-ports     resolve port numbers to service names
+--no-cache          disable dns caching (force fresh lookups)
+```
+
+dns lookups are performed in parallel and cached for performance. use `--no-cache` to bypass the cache for debugging or when addresses change frequently.
 
 for more specific filtering, use `key=value` syntax with `ls`:
 
@@ -208,8 +219,19 @@ optional config file at `~/.config/snitch/snitch.toml`:
 
 ```toml
 [defaults]
-numeric = false
-theme = "auto"
+numeric = false      # disable name resolution
+dns_cache = true     # cache dns lookups (set to false to disable)
+theme = "auto"       # color theme: auto, dark, light, mono
+```
+
+### environment variables
+
+```bash
+SNITCH_THEME=dark          # set default theme
+SNITCH_RESOLVE=0           # disable dns resolution
+SNITCH_DNS_CACHE=0         # disable dns caching
+SNITCH_NO_COLOR=1          # disable color output
+SNITCH_CONFIG=/path/to     # custom config file path
 ```
 
 ## requirements

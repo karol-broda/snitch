@@ -7,11 +7,13 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"github.com/karol-broda/snitch/internal/collector"
-	"github.com/karol-broda/snitch/internal/resolver"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/karol-broda/snitch/internal/collector"
+	"github.com/karol-broda/snitch/internal/config"
+	"github.com/karol-broda/snitch/internal/resolver"
 
 	"github.com/spf13/cobra"
 )
@@ -23,11 +25,10 @@ type TraceEvent struct {
 }
 
 var (
-	traceInterval    time.Duration
-	traceCount       int
+	traceInterval     time.Duration
+	traceCount        int
 	traceOutputFormat string
-	traceNumeric     bool
-	traceTimestamp   bool
+	traceTimestamp    bool
 )
 
 var traceCmd = &cobra.Command{
@@ -47,6 +48,12 @@ Available filters:
 }
 
 func runTraceCommand(args []string) {
+	cfg := config.Get()
+	
+	// configure resolver with cache setting
+	effectiveNoCache := noCache || !cfg.Defaults.DNSCache
+	resolver.SetNoCache(effectiveNoCache)
+
 	filters, err := BuildFilters(args)
 	if err != nil {
 		log.Fatalf("Error parsing filters: %v", err)
@@ -180,14 +187,16 @@ func printTraceEventHuman(event TraceEvent) {
 	lportStr := fmt.Sprintf("%d", conn.Lport)
 	rportStr := fmt.Sprintf("%d", conn.Rport)
 	
-	// Handle name resolution based on numeric flag
-	if !traceNumeric {
+	// apply name resolution
+	if resolveAddrs {
 		if resolvedLaddr := resolver.ResolveAddr(conn.Laddr); resolvedLaddr != conn.Laddr {
 			laddr = resolvedLaddr
 		}
 		if resolvedRaddr := resolver.ResolveAddr(conn.Raddr); resolvedRaddr != conn.Raddr && conn.Raddr != "*" && conn.Raddr != "" {
 			raddr = resolvedRaddr
 		}
+	}
+	if resolvePorts {
 		if resolvedLport := resolver.ResolvePort(conn.Lport, conn.Proto); resolvedLport != fmt.Sprintf("%d", conn.Lport) {
 			lportStr = resolvedLport
 		}
@@ -225,9 +234,9 @@ func init() {
 	traceCmd.Flags().DurationVarP(&traceInterval, "interval", "i", time.Second, "Polling interval (e.g., 500ms, 2s)")
 	traceCmd.Flags().IntVarP(&traceCount, "count", "c", 0, "Number of events to capture (0 = unlimited)")
 	traceCmd.Flags().StringVarP(&traceOutputFormat, "output", "o", "human", "Output format (human, json)")
-	traceCmd.Flags().BoolVarP(&traceNumeric, "numeric", "n", false, "Don't resolve hostnames")
 	traceCmd.Flags().BoolVar(&traceTimestamp, "ts", false, "Include timestamp in output")
 
-	// shared filter flags
+	// shared flags
 	addFilterFlags(traceCmd)
+	addResolutionFlags(traceCmd)
 }
