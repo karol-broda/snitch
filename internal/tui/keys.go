@@ -118,31 +118,39 @@ func (m model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "t":
 		m.showTCP = !m.showTCP
 		m.clampCursor()
+		m.saveState()
 	case "u":
 		m.showUDP = !m.showUDP
 		m.clampCursor()
+		m.saveState()
 	case "l":
 		m.showListening = !m.showListening
 		m.clampCursor()
+		m.saveState()
 	case "e":
 		m.showEstablished = !m.showEstablished
 		m.clampCursor()
+		m.saveState()
 	case "o":
 		m.showOther = !m.showOther
 		m.clampCursor()
+		m.saveState()
 	case "a":
 		m.showTCP = true
 		m.showUDP = true
 		m.showListening = true
 		m.showEstablished = true
 		m.showOther = true
+		m.saveState()
 
 	// sorting
 	case "s":
 		m.cycleSort()
+		m.saveState()
 	case "S":
 		m.sortReverse = !m.sortReverse
 		m.applySorting()
+		m.saveState()
 
 	// search
 	case "/":
@@ -220,6 +228,7 @@ func (m model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.statusMessage = "address resolution: off"
 		}
 		m.statusExpiry = time.Now().Add(2 * time.Second)
+		m.saveState()
 		return m, clearStatusAfter(2 * time.Second)
 
 	// toggle port resolution
@@ -231,6 +240,7 @@ func (m model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.statusMessage = "port resolution: off"
 		}
 		m.statusExpiry = time.Now().Add(2 * time.Second)
+		m.saveState()
 		return m, clearStatusAfter(2 * time.Second)
 	}
 
