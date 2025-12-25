@@ -33,11 +33,12 @@ var topCmd = &cobra.Command{
 		resolver.SetNoCache(effectiveNoCache)
 
 		opts := tui.Options{
-			Theme:        theme,
-			Interval:     topInterval,
-			ResolveAddrs: resolveAddrs,
-			ResolvePorts: resolvePorts,
-			NoCache:      effectiveNoCache,
+			Theme:         theme,
+			Interval:      topInterval,
+			ResolveAddrs:  resolveAddrs,
+			ResolvePorts:  resolvePorts,
+			NoCache:       effectiveNoCache,
+			RememberState: cfg.TUI.RememberState,
 		}
 
 		// if any filter flag is set, use exclusive mode

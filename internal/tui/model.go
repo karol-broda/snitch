@@ -2,11 +2,13 @@ package tui
 
 import (
 	"fmt"
-	"github.com/karol-broda/snitch/internal/collector"
-	"github.com/karol-broda/snitch/internal/theme"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/karol-broda/snitch/internal/collector"
+	"github.com/karol-broda/snitch/internal/state"
+	"github.com/karol-broda/snitch/internal/theme"
 )
 
 type model struct {
@@ -51,20 +53,24 @@ type model struct {
 	// status message (temporary feedback)
 	statusMessage string
 	statusExpiry  time.Time
+
+	// state persistence
+	rememberState bool
 }
 
 type Options struct {
-	Theme        string
-	Interval     time.Duration
-	TCP          bool
-	UDP          bool
-	Listening    bool
-	Established  bool
-	Other        bool
-	FilterSet    bool // true if user specified any filter flags
-	ResolveAddrs bool // when true, resolve IP addresses to hostnames
-	ResolvePorts bool // when true, resolve port numbers to service names
-	NoCache      bool // when true, disable DNS caching
+	Theme         string
+	Interval      time.Duration
+	TCP           bool
+	UDP           bool
+	Listening     bool
+	Established   bool
+	Other         bool
+	FilterSet     bool // true if user specified any filter flags
+	ResolveAddrs  bool // when true, resolve IP addresses to hostnames
+	ResolvePorts  bool // when true, resolve port numbers to service names
+	NoCache       bool // when true, disable DNS caching
+	RememberState bool // when true, persist view options between sessions
 }
 
 func New(opts Options) model {
@@ -79,8 +85,27 @@ func New(opts Options) model {
 	showListening := true
 	showEstablished := true
 	showOther := true
+	sortField := collector.SortByLport
+	sortReverse := false
+	resolveAddrs := opts.ResolveAddrs
+	resolvePorts := opts.ResolvePorts
 
-	// if user specified filters, use those instead
+	// load saved state if enabled and no CLI filter flags were specified
+	if opts.RememberState && !opts.FilterSet {
+		if saved := state.Load(); saved != nil {
+			showTCP = saved.ShowTCP
+			showUDP = saved.ShowUDP
+			showListening = saved.ShowListening
+			showEstablished = saved.ShowEstablished
+			showOther = saved.ShowOther
+			sortField = saved.SortField
+			sortReverse = saved.SortReverse
+			resolveAddrs = saved.ResolveAddrs
+			resolvePorts = saved.ResolvePorts
+		}
+	}
+
+	// if user specified filters, use those instead (CLI flags take precedence)
 	if opts.FilterSet {
 		showTCP = opts.TCP
 		showUDP = opts.UDP
@@ -108,13 +133,15 @@ func New(opts Options) model {
 		showListening:   showListening,
 		showEstablished: showEstablished,
 		showOther:       showOther,
-		sortField:       collector.SortByLport,
-		resolveAddrs:    opts.ResolveAddrs,
-		resolvePorts:    opts.ResolvePorts,
+		sortField:       sortField,
+		sortReverse:     sortReverse,
+		resolveAddrs:    resolveAddrs,
+		resolvePorts:    resolvePorts,
 		theme:           theme.GetTheme(opts.Theme),
 		interval:        interval,
 		lastRefresh:     time.Now(),
 		watchedPIDs:     make(map[int]bool),
+		rememberState:   opts.RememberState,
 	}
 }
 
@@ -290,4 +317,26 @@ func (m *model) toggleWatch(pid int) {
 
 func (m model) watchedCount() int {
 	return len(m.watchedPIDs)
+}
+
+// currentState returns the current view options as a TUIState for persistence
+func (m model) currentState() state.TUIState {
+	return state.TUIState{
+		ShowTCP:         m.showTCP,
+		ShowUDP:         m.showUDP,
+		ShowListening:   m.showListening,
+		ShowEstablished: m.showEstablished,
+		ShowOther:       m.showOther,
+		SortField:       m.sortField,
+		SortReverse:     m.sortReverse,
+		ResolveAddrs:    m.resolveAddrs,
+		ResolvePorts:    m.resolvePorts,
+	}
+}
+
+// saveState persists current view options in the background
+func (m model) saveState() {
+	if m.rememberState {
+		state.SaveAsync(m.currentState())
+	}
 }

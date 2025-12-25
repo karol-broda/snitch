@@ -222,7 +222,22 @@ optional config file at `~/.config/snitch/snitch.toml`:
 numeric = false      # disable name resolution
 dns_cache = true     # cache dns lookups (set to false to disable)
 theme = "auto"       # color theme: auto, dark, light, mono
+
+[tui]
+remember_state = false   # remember view options between sessions
 ```
+
+### remembering view options
+
+when `remember_state = true`, the tui will save and restore:
+
+- filter toggles (tcp/udp, listen/established/other)
+- sort field and direction
+- address and port resolution settings
+
+state is saved to `$XDG_STATE_HOME/snitch/tui.json` (defaults to `~/.local/state/snitch/tui.json`).
+
+cli flags always take priority over saved state.
 
 ### environment variables
 
