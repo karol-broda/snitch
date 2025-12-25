@@ -44,6 +44,45 @@ nix profile install github:karol-broda/snitch
 # then use: inputs.snitch.packages.${system}.default
 ```
 
+### home-manager (flake)
+
+add snitch to your flake inputs and import the home-manager module:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    home-manager.url = "github:nix-community/home-manager";
+    snitch.url = "github:karol-broda/snitch";
+  };
+
+  outputs = { nixpkgs, home-manager, snitch, ... }: {
+    homeConfigurations."user" = home-manager.lib.homeManagerConfiguration {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      modules = [
+        snitch.homeManagerModules.default
+        {
+          programs.snitch = {
+            enable = true;
+            # optional: use the flake's package instead of nixpkgs
+            # package = snitch.packages.x86_64-linux.default;
+            settings = {
+              defaults = {
+                theme = "catppuccin-mocha";
+                interval = "2s";
+                resolve = true;
+              };
+            };
+          };
+        }
+      ];
+    };
+  };
+}
+```
+
+available themes: `ansi`, `catppuccin-mocha`, `catppuccin-macchiato`, `catppuccin-frappe`, `catppuccin-latte`, `gruvbox-dark`, `gruvbox-light`, `dracula`, `nord`, `tokyo-night`, `tokyo-night-storm`, `tokyo-night-light`, `solarized-dark`, `solarized-light`, `one-dark`, `mono`
+
 ### arch linux (aur)
 
 ```bash
