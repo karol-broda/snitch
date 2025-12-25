@@ -14,6 +14,12 @@ import (
 // Config represents the application configuration
 type Config struct {
 	Defaults DefaultConfig `mapstructure:"defaults"`
+	TUI      TUIConfig     `mapstructure:"tui"`
+}
+
+// TUIConfig contains TUI-specific configuration
+type TUIConfig struct {
+	RememberState bool `mapstructure:"remember_state"`
 }
 
 // DefaultConfig contains default values for CLI options
@@ -105,6 +111,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("defaults.no_headers", false)
 	v.SetDefault("defaults.output_format", "table")
 	v.SetDefault("defaults.sort_by", "")
+
+	// tui settings
+	v.SetDefault("tui.remember_state", false)
 }
 
 func handleSpecialEnvVars(v *viper.Viper) {
@@ -145,6 +154,9 @@ func Get() *Config {
 					NoHeaders:    false,
 					OutputFormat: "table",
 					SortBy:       "",
+				},
+				TUI: TUIConfig{
+					RememberState: false,
 				},
 			}
 		}
@@ -199,6 +211,11 @@ ipv6 = false
 no_headers = false
 output_format = "table"
 sort_by = ""
+
+[tui]
+# remember view options (filters, sort, resolution) between sessions
+# state is saved to $XDG_STATE_HOME/snitch/tui.json
+remember_state = false
 `, themeList, theme.DefaultTheme)
 
 	// Ensure directory exists
