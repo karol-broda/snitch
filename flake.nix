@@ -113,5 +113,25 @@
       # alias for flake-parts compatibility
       homeModules.default = self.homeManagerModules.default;
       homeModules.snitch = self.homeManagerModules.default;
+
+      checks = eachSystem (system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ self.overlays.default ];
+          };
+        in
+        {
+          # home manager module tests
+          hm-module = import ./nix/tests/hm-module-test.nix {
+            inherit pkgs;
+            lib = pkgs.lib;
+            hmModule = self.homeManagerModules.default;
+          };
+
+          # package builds correctly
+          package = self.packages.${system}.default;
+        }
+      );
     };
 }
