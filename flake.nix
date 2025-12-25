@@ -80,11 +80,18 @@
     in
     {
       packages = eachSystem (system:
-        let pkgs = pkgsFor system; in
-        {
-          default = mkSnitch pkgs;
+        let
+          pkgs = pkgsFor system;
           snitch = mkSnitch pkgs;
-        }
+          # containers only available on linux
+          containers = if pkgs.stdenv.isLinux
+            then import ./nix/containers.nix { inherit pkgs snitch; }
+            else { };
+        in
+        {
+          default = snitch;
+          inherit snitch;
+        } // containers
       );
 
       devShells = eachSystem (system:
@@ -94,7 +101,7 @@
         in
         {
           default = pkgs.mkShell {
-            packages = [ go pkgs.git pkgs.vhs ];
+            packages = [ go pkgs.git pkgs.vhs pkgs.nix-prefetch-docker ];
             env.GOTOOLCHAIN = "local";
             shellHook = ''
               echo "go toolchain: $(go version)"

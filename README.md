@@ -107,6 +107,47 @@ curl -sSL https://raw.githubusercontent.com/karol-broda/snitch/master/install.sh
 
 > **macos:** the install script automatically removes the quarantine attribute (`com.apple.quarantine`) from the binary to allow it to run without gatekeeper warnings. to disable this, set `KEEP_QUARANTINE=1`.
 
+### docker
+
+pre-built oci images available from github container registry:
+
+```bash
+# pull from ghcr.io
+docker pull ghcr.io/karol-broda/snitch:latest          # alpine (default)
+docker pull ghcr.io/karol-broda/snitch:latest-alpine   # alpine (~17MB)
+docker pull ghcr.io/karol-broda/snitch:latest-scratch  # minimal, binary only (~9MB)
+docker pull ghcr.io/karol-broda/snitch:latest-debian   # debian trixie
+docker pull ghcr.io/karol-broda/snitch:latest-ubuntu   # ubuntu 24.04
+
+# or use a specific version
+docker pull ghcr.io/karol-broda/snitch:0.2.0-alpine
+```
+
+alternatively, build locally via nix flake:
+
+```bash
+nix build github:karol-broda/snitch#snitch-alpine
+docker load < result
+```
+
+**running the container:**
+
+```bash
+# basic usage - sees host sockets but not process names
+docker run --rm --net=host snitch:latest ls
+
+# full info - includes PID, process name, user
+docker run --rm --net=host --pid=host --cap-add=SYS_PTRACE snitch:latest ls
+```
+
+| flag | purpose |
+|------|---------|
+| `--net=host` | share host network namespace (required to see host connections) |
+| `--pid=host` | share host pid namespace (needed for process info) |
+| `--cap-add=SYS_PTRACE` | read process details from `/proc/<pid>` |
+
+> **note:** `CAP_NET_ADMIN` and `CAP_NET_RAW` are not required. snitch reads from `/proc/net/*` which doesn't need special network capabilities.
+
 ### binary
 
 download from [releases](https://github.com/karol-broda/snitch/releases):
