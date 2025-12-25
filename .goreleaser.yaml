@@ -82,6 +82,7 @@ aurs:
     package: |-
       install -Dm755 "./snitch" "${pkgdir}/usr/bin/snitch"
       install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/snitch/LICENSE"
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/snitch/README.md"
     commit_msg_template: "Update to {{ .Tag }}"
     skip_upload: auto
 
