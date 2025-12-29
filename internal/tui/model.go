@@ -2,6 +2,9 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -53,6 +56,12 @@ type model struct {
 	// status message (temporary feedback)
 	statusMessage string
 	statusExpiry  time.Time
+
+	// export modal
+	showExportModal bool
+	exportFilename  string
+	exportFormat    string // "csv" or "tsv"
+	exportError     string
 
 	// state persistence
 	rememberState bool
@@ -214,6 +223,11 @@ func (m model) View() string {
 		return m.overlayModal(main, m.renderKillModal())
 	}
 
+	// overlay export modal on top of main view
+	if m.showExportModal {
+		return m.overlayModal(main, m.renderExportModal())
+	}
+
 	return main
 }
 
@@ -289,12 +303,19 @@ func (m model) matchesFilters(c collector.Connection) bool {
 }
 
 func (m model) matchesSearch(c collector.Connection) bool {
+	lportStr := strconv.Itoa(c.Lport)
+	rportStr := strconv.Itoa(c.Rport)
+	pidStr := strconv.Itoa(c.PID)
+
 	return containsIgnoreCase(c.Process, m.searchQuery) ||
 		containsIgnoreCase(c.Laddr, m.searchQuery) ||
 		containsIgnoreCase(c.Raddr, m.searchQuery) ||
 		containsIgnoreCase(c.User, m.searchQuery) ||
 		containsIgnoreCase(c.Proto, m.searchQuery) ||
-		containsIgnoreCase(c.State, m.searchQuery)
+		containsIgnoreCase(c.State, m.searchQuery) ||
+		containsIgnoreCase(lportStr, m.searchQuery) ||
+		containsIgnoreCase(rportStr, m.searchQuery) ||
+		containsIgnoreCase(pidStr, m.searchQuery)
 }
 
 func (m model) isWatched(pid int) bool {
@@ -339,4 +360,63 @@ func (m model) saveState() {
 	if m.rememberState {
 		state.SaveAsync(m.currentState())
 	}
+}
+
+// exportConnections writes visible connections to a file in csv or tsv format
+func (m model) exportConnections() error {
+	visible := m.visibleConnections()
+
+	if len(visible) == 0 {
+		return fmt.Errorf("no connections to export")
+	}
+
+	file, err := os.Create(m.exportFilename)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = file.Close() }()
+
+	// determine delimiter from format selection or filename
+	delimiter := ","
+	if m.exportFormat == "tsv" || strings.HasSuffix(strings.ToLower(m.exportFilename), ".tsv") {
+		delimiter = "\t"
+	}
+
+	header := []string{"PID", "PROCESS", "USER", "PROTO", "STATE", "LADDR", "LPORT", "RADDR", "RPORT"}
+	_, err = file.WriteString(strings.Join(header, delimiter) + "\n")
+	if err != nil {
+		return err
+	}
+
+	for _, c := range visible {
+		// escape fields that might contain delimiter
+		process := escapeField(c.Process, delimiter)
+		user := escapeField(c.User, delimiter)
+
+		row := []string{
+			strconv.Itoa(c.PID),
+			process,
+			user,
+			c.Proto,
+			c.State,
+			c.Laddr,
+			strconv.Itoa(c.Lport),
+			c.Raddr,
+			strconv.Itoa(c.Rport),
+		}
+		_, err = file.WriteString(strings.Join(row, delimiter) + "\n")
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// escapeField quotes a field if it contains the delimiter or quotes
+func escapeField(s, delimiter string) string {
+	if strings.Contains(s, delimiter) || strings.Contains(s, "\"") || strings.Contains(s, "\n") {
+		return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
+	}
+	return s
 }

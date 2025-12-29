@@ -27,6 +27,7 @@ import (
 // ls-specific flags
 var (
 	outputFormat  string
+	outputFile    string
 	noHeaders     bool
 	showTimestamp bool
 	sortBy        string
@@ -72,7 +73,75 @@ func runListCommand(outputFormat string, args []string) {
 		selectedFields = strings.Split(fields, ",")
 	}
 
+	// handle file output
+	if outputFile != "" {
+		writeToFile(rt.Connections, outputFile, selectedFields)
+		return
+	}
+
 	renderList(rt.Connections, outputFormat, selectedFields)
+}
+
+func writeToFile(connections []collector.Connection, filename string, selectedFields []string) {
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatalf("failed to create file: %v", err)
+	}
+	defer errutil.Close(file)
+
+	// determine format from extension
+	format := "csv"
+	lowerFilename := strings.ToLower(filename)
+	if strings.HasSuffix(lowerFilename, ".json") {
+		format = "json"
+	} else if strings.HasSuffix(lowerFilename, ".tsv") {
+		format = "tsv"
+	}
+
+	if len(selectedFields) == 0 {
+		selectedFields = []string{"pid", "process", "user", "proto", "state", "laddr", "lport", "raddr", "rport"}
+		if showTimestamp {
+			selectedFields = append([]string{"ts"}, selectedFields...)
+		}
+	}
+
+	switch format {
+	case "json":
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(connections); err != nil {
+			log.Fatalf("failed to write JSON: %v", err)
+		}
+	case "tsv":
+		writeDelimited(file, connections, "\t", !noHeaders, selectedFields)
+	default:
+		writeDelimited(file, connections, ",", !noHeaders, selectedFields)
+	}
+
+	fmt.Fprintf(os.Stderr, "exported %d connections to %s\n", len(connections), filename)
+}
+
+func writeDelimited(w io.Writer, connections []collector.Connection, delimiter string, headers bool, selectedFields []string) {
+	if headers {
+		headerRow := make([]string, len(selectedFields))
+		for i, field := range selectedFields {
+			headerRow[i] = strings.ToUpper(field)
+		}
+		_, _ = fmt.Fprintln(w, strings.Join(headerRow, delimiter))
+	}
+
+	for _, conn := range connections {
+		fieldMap := getFieldMap(conn)
+		row := make([]string, len(selectedFields))
+		for i, field := range selectedFields {
+			val := fieldMap[field]
+			if delimiter == "," && (strings.Contains(val, ",") || strings.Contains(val, "\"") || strings.Contains(val, "\n")) {
+				val = "\"" + strings.ReplaceAll(val, "\"", "\"\"") + "\""
+			}
+			row[i] = val
+		}
+		_, _ = fmt.Fprintln(w, strings.Join(row, delimiter))
+	}
 }
 
 func renderList(connections []collector.Connection, format string, selectedFields []string) {
@@ -122,6 +191,8 @@ func getFieldMap(c collector.Connection) map[string]string {
 	return map[string]string{
 		"pid":       strconv.Itoa(c.PID),
 		"process":   c.Process,
+		"cmdline":   c.Cmdline,
+		"cwd":       c.Cwd,
 		"user":      c.User,
 		"uid":       strconv.Itoa(c.UID),
 		"proto":     c.Proto,
@@ -395,6 +466,7 @@ func init() {
 
 	// ls-specific flags
 	lsCmd.Flags().StringVarP(&outputFormat, "output", "o", cfg.Defaults.OutputFormat, "Output format (table, wide, json, csv)")
+	lsCmd.Flags().StringVarP(&outputFile, "output-file", "O", "", "Write output to file (format detected from extension: .csv, .tsv, .json)")
 	lsCmd.Flags().BoolVar(&noHeaders, "no-headers", cfg.Defaults.NoHeaders, "Omit headers for table/csv output")
 	lsCmd.Flags().BoolVar(&showTimestamp, "ts", false, "Include timestamp in output")
 	lsCmd.Flags().StringVarP(&sortBy, "sort", "s", cfg.Defaults.SortBy, "Sort by column (e.g., pid:desc)")
