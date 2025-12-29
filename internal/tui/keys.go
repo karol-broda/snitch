@@ -276,6 +276,7 @@ func (m *model) cycleSort() {
 		collector.SortByPID,
 		collector.SortByState,
 		collector.SortByProto,
+		collector.SortByRaddr,
 	}
 
 	for i, f := range fields {
