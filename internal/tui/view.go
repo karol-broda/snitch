@@ -203,7 +203,7 @@ func (m model) renderStatusLine() string {
 		return "  " + m.theme.Styles.Warning.Render(m.statusMessage)
 	}
 
-	left := "  " + m.theme.Styles.Normal.Render("t/u proto  l/e/o state  n/N dns  w watch  K kill  s sort  / search  ? help  q quit")
+	left := "  " + m.theme.Styles.Normal.Render("t/u proto  l/e/o state  n/N dns  w watch  K kill  s sort  / search  x export  ? help  q quit")
 
 	// show watched count if any
 	if m.watchedCount() > 0 {
@@ -271,6 +271,7 @@ func (m model) renderHelp() string {
   other
   ─────
   /            search
+  x            export to csv/tsv (enter filename)
   r            refresh now
   q            quit
 
@@ -301,6 +302,8 @@ func (m model) renderDetail() string {
 		value string
 	}{
 		{"process", c.Process},
+		{"cmdline", c.Cmdline},
+		{"cwd", c.Cwd},
 		{"pid", fmt.Sprintf("%d", c.PID)},
 		{"user", c.User},
 		{"protocol", c.Proto},
@@ -363,6 +366,119 @@ func (m model) renderKillModal() string {
 	lines = append(lines, fmt.Sprintf("  %s confirm   %s cancel",
 		m.theme.Styles.Success.Render("[y]"),
 		m.theme.Styles.Error.Render("[n]")))
+	lines = append(lines, "")
+
+	return strings.Join(lines, "\n")
+}
+
+func (m model) renderExportModal() string {
+	visible := m.visibleConnections()
+
+	// count protocols and states for preview
+	tcpCount, udpCount := 0, 0
+	listenCount, estabCount, otherCount := 0, 0, 0
+	for _, c := range visible {
+		if c.Proto == "tcp" || c.Proto == "tcp6" {
+			tcpCount++
+		} else {
+			udpCount++
+		}
+		switch c.State {
+		case "LISTEN":
+			listenCount++
+		case "ESTABLISHED":
+			estabCount++
+		default:
+			otherCount++
+		}
+	}
+
+	var lines []string
+
+	// header
+	lines = append(lines, "")
+	headerText := "  " + SymbolExport + "  EXPORT CONNECTIONS  "
+	lines = append(lines, m.theme.Styles.Header.Render(headerText))
+	lines = append(lines, m.theme.Styles.Border.Render("  "+strings.Repeat(BoxHorizontal, 36)))
+	lines = append(lines, "")
+
+	// stats preview section
+	lines = append(lines, m.theme.Styles.Normal.Render("  "+SymbolBullet+" summary"))
+	lines = append(lines, fmt.Sprintf("    total:   %s",
+		m.theme.Styles.Success.Render(fmt.Sprintf("%d connections", len(visible)))))
+
+	protoSummary := fmt.Sprintf("    proto:   %s tcp  %s udp",
+		m.theme.Styles.GetProtoStyle("tcp").Render(fmt.Sprintf("%d", tcpCount)),
+		m.theme.Styles.GetProtoStyle("udp").Render(fmt.Sprintf("%d", udpCount)))
+	lines = append(lines, protoSummary)
+
+	stateSummary := fmt.Sprintf("    state:   %s listen  %s estab  %s other",
+		m.theme.Styles.GetStateStyle("LISTEN").Render(fmt.Sprintf("%d", listenCount)),
+		m.theme.Styles.GetStateStyle("ESTABLISHED").Render(fmt.Sprintf("%d", estabCount)),
+		m.theme.Styles.Normal.Render(fmt.Sprintf("%d", otherCount)))
+	lines = append(lines, stateSummary)
+	lines = append(lines, "")
+
+	// format selection
+	lines = append(lines, m.theme.Styles.Normal.Render("  "+SymbolBullet+" format"))
+
+	csvStyle := m.theme.Styles.Normal
+	tsvStyle := m.theme.Styles.Normal
+	csvIndicator := "  "
+	tsvIndicator := "  "
+
+	if m.exportFormat == "tsv" {
+		tsvStyle = m.theme.Styles.Success
+		tsvIndicator = m.theme.Styles.Success.Render(SymbolSelected + " ")
+	} else {
+		csvStyle = m.theme.Styles.Success
+		csvIndicator = m.theme.Styles.Success.Render(SymbolSelected + " ")
+	}
+
+	formatLine := fmt.Sprintf("    %s%s    %s%s",
+		csvIndicator, csvStyle.Render("CSV (comma)"),
+		tsvIndicator, tsvStyle.Render("TSV (tab)"))
+	lines = append(lines, formatLine)
+	lines = append(lines, m.theme.Styles.Border.Render("    "+strings.Repeat(BoxHorizontal, 8)+"  press "+m.theme.Styles.Warning.Render("tab")+" to toggle"))
+	lines = append(lines, "")
+
+	// filename input
+	lines = append(lines, m.theme.Styles.Normal.Render("  "+SymbolBullet+" filename"))
+
+	ext := ".csv"
+	if m.exportFormat == "tsv" {
+		ext = ".tsv"
+	}
+
+	filenameDisplay := m.exportFilename
+	if filenameDisplay == "" {
+		filenameDisplay = "connections"
+	}
+
+	inputBox := fmt.Sprintf("    %s %s%s",
+		m.theme.Styles.Success.Render(SymbolPrompt),
+		m.theme.Styles.Warning.Render(filenameDisplay),
+		m.theme.Styles.Success.Render(ext+"▌"))
+	lines = append(lines, inputBox)
+	lines = append(lines, "")
+
+	// error display
+	if m.exportError != "" {
+		lines = append(lines, m.theme.Styles.Error.Render(fmt.Sprintf("  %s %s", SymbolWarning, m.exportError)))
+		lines = append(lines, "")
+	}
+
+	// preview of fields
+	lines = append(lines, m.theme.Styles.Border.Render("  "+strings.Repeat(BoxHorizontal, 36)))
+	fieldsPreview := "  fields: PID, PROCESS, USER, PROTO, STATE, LADDR, LPORT, RADDR, RPORT"
+	lines = append(lines, m.theme.Styles.Normal.Render(truncate(fieldsPreview, 40)))
+	lines = append(lines, "")
+
+	// action buttons
+	lines = append(lines, fmt.Sprintf("  %s export   %s toggle format   %s cancel",
+		m.theme.Styles.Success.Render("[enter]"),
+		m.theme.Styles.Warning.Render("[tab]"),
+		m.theme.Styles.Error.Render("[esc]")))
 	lines = append(lines, "")
 
 	return strings.Join(lines, "\n")

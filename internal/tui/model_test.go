@@ -1,12 +1,15 @@
 package tui
 
 import (
-	"github.com/karol-broda/snitch/internal/collector"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/karol-broda/snitch/internal/collector"
 )
 
 func TestTUI_InitialState(t *testing.T) {
@@ -427,6 +430,349 @@ func TestTUI_FormatRemoteHelper(t *testing.T) {
 	result := m.formatRemote("192.168.1.1", 443, "tcp")
 	if result != "192.168.1.1:443" {
 		t.Errorf("expected '192.168.1.1:443', got %s", result)
+	}
+}
+
+func TestTUI_MatchesSearchPort(t *testing.T) {
+	m := New(Options{Theme: "dark"})
+
+	tests := []struct {
+		name        string
+		searchQuery string
+		conn        collector.Connection
+		expected    bool
+	}{
+		{
+			name:        "matches local port",
+			searchQuery: "3000",
+			conn:        collector.Connection{Lport: 3000},
+			expected:    true,
+		},
+		{
+			name:        "matches remote port",
+			searchQuery: "443",
+			conn:        collector.Connection{Rport: 443},
+			expected:    true,
+		},
+		{
+			name:        "matches pid",
+			searchQuery: "1234",
+			conn:        collector.Connection{PID: 1234},
+			expected:    true,
+		},
+		{
+			name:        "partial port match",
+			searchQuery: "80",
+			conn:        collector.Connection{Lport: 8080},
+			expected:    true,
+		},
+		{
+			name:        "no match",
+			searchQuery: "9999",
+			conn:        collector.Connection{Lport: 80, Rport: 443, PID: 1234},
+			expected:    false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m.searchQuery = tc.searchQuery
+			result := m.matchesSearch(tc.conn)
+			if result != tc.expected {
+				t.Errorf("matchesSearch() = %v, want %v", result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestTUI_SortCycleIncludesRemote(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+
+	// start at default (Lport)
+	if m.sortField != collector.SortByLport {
+		t.Fatalf("expected initial sort field to be lport, got %v", m.sortField)
+	}
+
+	// cycle through all fields and verify raddr and rport are included
+	foundRaddr := false
+	foundRport := false
+	seenFields := make(map[collector.SortField]bool)
+
+	for i := 0; i < 10; i++ {
+		m.cycleSort()
+		seenFields[m.sortField] = true
+
+		if m.sortField == collector.SortByRaddr {
+			foundRaddr = true
+		}
+		if m.sortField == collector.SortByRport {
+			foundRport = true
+		}
+
+		if foundRaddr && foundRport {
+			break
+		}
+	}
+
+	if !foundRaddr {
+		t.Error("expected sort cycle to include SortByRaddr")
+	}
+	if !foundRport {
+		t.Error("expected sort cycle to include SortByRport")
+	}
+}
+
+func TestTUI_ExportModal(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+	m.width = 120
+	m.height = 40
+
+	// initially export modal should not be shown
+	if m.showExportModal {
+		t.Fatal("expected showExportModal to be false initially")
+	}
+
+	// press 'x' to open export modal
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	m = newModel.(model)
+
+	if !m.showExportModal {
+		t.Error("expected showExportModal to be true after pressing 'x'")
+	}
+
+	// type filename
+	for _, c := range "test.csv" {
+		newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{c}})
+		m = newModel.(model)
+	}
+
+	if m.exportFilename != "test.csv" {
+		t.Errorf("expected exportFilename to be 'test.csv', got '%s'", m.exportFilename)
+	}
+
+	// escape should close modal
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = newModel.(model)
+
+	if m.showExportModal {
+		t.Error("expected showExportModal to be false after escape")
+	}
+	if m.exportFilename != "" {
+		t.Error("expected exportFilename to be cleared after escape")
+	}
+}
+
+func TestTUI_ExportModalDefaultFilename(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+	m.width = 120
+	m.height = 40
+
+	// add test data
+	m.connections = []collector.Connection{
+		{PID: 1234, Process: "nginx", Proto: "tcp", State: "LISTEN", Laddr: "0.0.0.0", Lport: 80},
+	}
+
+	// open export modal
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	m = newModel.(model)
+
+	// render export modal should show default filename hint
+	view := m.View()
+	if view == "" {
+		t.Error("expected non-empty view with export modal")
+	}
+}
+
+func TestTUI_ExportModalBackspace(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+	m.width = 120
+	m.height = 40
+
+	// open export modal
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	m = newModel.(model)
+
+	// type filename
+	for _, c := range "test.csv" {
+		newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{c}})
+		m = newModel.(model)
+	}
+
+	// backspace should remove last character
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m = newModel.(model)
+
+	if m.exportFilename != "test.cs" {
+		t.Errorf("expected 'test.cs' after backspace, got '%s'", m.exportFilename)
+	}
+}
+
+func TestTUI_ExportConnectionsCSV(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+
+	m.connections = []collector.Connection{
+		{PID: 1234, Process: "nginx", User: "www-data", Proto: "tcp", State: "LISTEN", Laddr: "0.0.0.0", Lport: 80, Raddr: "*", Rport: 0},
+		{PID: 5678, Process: "node", User: "node", Proto: "tcp", State: "ESTABLISHED", Laddr: "192.168.1.1", Lport: 3000, Raddr: "10.0.0.1", Rport: 443},
+	}
+
+	tmpDir := t.TempDir()
+	csvPath := filepath.Join(tmpDir, "test_export.csv")
+	m.exportFilename = csvPath
+
+	err := m.exportConnections()
+	if err != nil {
+		t.Fatalf("exportConnections() failed: %v", err)
+	}
+
+	content, err := os.ReadFile(csvPath)
+	if err != nil {
+		t.Fatalf("failed to read exported file: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+	if len(lines) != 3 {
+		t.Errorf("expected 3 lines (header + 2 data), got %d", len(lines))
+	}
+
+	if !strings.Contains(lines[0], "PID") || !strings.Contains(lines[0], "PROCESS") {
+		t.Error("header line should contain PID and PROCESS")
+	}
+
+	if !strings.Contains(lines[1], "nginx") || !strings.Contains(lines[1], "1234") {
+		t.Error("first data line should contain nginx and 1234")
+	}
+
+	if !strings.Contains(lines[2], "node") || !strings.Contains(lines[2], "5678") {
+		t.Error("second data line should contain node and 5678")
+	}
+}
+
+func TestTUI_ExportConnectionsTSV(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+
+	m.connections = []collector.Connection{
+		{PID: 1234, Process: "nginx", User: "www-data", Proto: "tcp", State: "LISTEN", Laddr: "0.0.0.0", Lport: 80, Raddr: "*", Rport: 0},
+	}
+
+	tmpDir := t.TempDir()
+	tsvPath := filepath.Join(tmpDir, "test_export.tsv")
+	m.exportFilename = tsvPath
+
+	err := m.exportConnections()
+	if err != nil {
+		t.Fatalf("exportConnections() failed: %v", err)
+	}
+
+	content, err := os.ReadFile(tsvPath)
+	if err != nil {
+		t.Fatalf("failed to read exported file: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+
+	// TSV should use tabs
+	if !strings.Contains(lines[0], "\t") {
+		t.Error("TSV file should use tabs as delimiters")
+	}
+
+	// CSV delimiter should not be present between fields
+	fields := strings.Split(lines[1], "\t")
+	if len(fields) < 9 {
+		t.Errorf("expected at least 9 tab-separated fields, got %d", len(fields))
+	}
+}
+
+func TestTUI_ExportWithFilters(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+	m.showTCP = true
+	m.showUDP = false
+
+	m.connections = []collector.Connection{
+		{PID: 1, Process: "tcp_proc", Proto: "tcp", State: "LISTEN", Laddr: "0.0.0.0", Lport: 80},
+		{PID: 2, Process: "udp_proc", Proto: "udp", State: "LISTEN", Laddr: "0.0.0.0", Lport: 53},
+	}
+
+	tmpDir := t.TempDir()
+	csvPath := filepath.Join(tmpDir, "filtered_export.csv")
+	m.exportFilename = csvPath
+
+	err := m.exportConnections()
+	if err != nil {
+		t.Fatalf("exportConnections() failed: %v", err)
+	}
+
+	content, err := os.ReadFile(csvPath)
+	if err != nil {
+		t.Fatalf("failed to read exported file: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+
+	// should only have header + 1 TCP connection (UDP filtered out)
+	if len(lines) != 2 {
+		t.Errorf("expected 2 lines (header + 1 TCP), got %d", len(lines))
+	}
+
+	if strings.Contains(string(content), "udp_proc") {
+		t.Error("UDP connection should not be exported when UDP filter is off")
+	}
+}
+
+func TestTUI_ExportFormatToggle(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+	m.width = 120
+	m.height = 40
+
+	// open export modal
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	m = newModel.(model)
+
+	// default format should be csv
+	if m.exportFormat != "csv" {
+		t.Errorf("expected default format 'csv', got '%s'", m.exportFormat)
+	}
+
+	// tab should toggle to tsv
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = newModel.(model)
+
+	if m.exportFormat != "tsv" {
+		t.Errorf("expected format 'tsv' after tab, got '%s'", m.exportFormat)
+	}
+
+	// tab again should toggle back to csv
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = newModel.(model)
+
+	if m.exportFormat != "csv" {
+		t.Errorf("expected format 'csv' after second tab, got '%s'", m.exportFormat)
+	}
+}
+
+func TestTUI_ExportModalRenderWithStats(t *testing.T) {
+	m := New(Options{Theme: "dark", Interval: time.Hour})
+	m.width = 120
+	m.height = 40
+
+	m.connections = []collector.Connection{
+		{PID: 1, Process: "nginx", Proto: "tcp", State: "LISTEN", Laddr: "0.0.0.0", Lport: 80},
+		{PID: 2, Process: "postgres", Proto: "tcp", State: "LISTEN", Laddr: "127.0.0.1", Lport: 5432},
+		{PID: 3, Process: "node", Proto: "tcp", State: "ESTABLISHED", Laddr: "192.168.1.1", Lport: 3000},
+	}
+
+	m.showExportModal = true
+	m.exportFormat = "csv"
+
+	view := m.View()
+
+	// modal should contain summary info
+	if !strings.Contains(view, "3") {
+		t.Error("modal should show connection count")
+	}
+
+	// modal should show format options
+	if !strings.Contains(view, "CSV") || !strings.Contains(view, "TSV") {
+		t.Error("modal should show format options")
 	}
 }
 

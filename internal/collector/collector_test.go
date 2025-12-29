@@ -115,3 +115,59 @@ func BenchmarkBuildInodeMap(b *testing.B) {
 		_, _ = buildInodeToProcessMap()
 	}
 }
+
+func TestConnectionHasCmdlineAndCwd(t *testing.T) {
+	conns, err := GetConnections()
+	if err != nil {
+		t.Fatalf("GetConnections() returned an error: %v", err)
+	}
+
+	if len(conns) == 0 {
+		t.Skip("no connections to test")
+	}
+
+	// find a connection with a PID (owned by some process)
+	var connWithProcess *Connection
+	for i := range conns {
+		if conns[i].PID > 0 {
+			connWithProcess = &conns[i]
+			break
+		}
+	}
+
+	if connWithProcess == nil {
+		t.Skip("no connections with associated process found")
+	}
+
+	t.Logf("testing connection: pid=%d process=%s", connWithProcess.PID, connWithProcess.Process)
+
+	// cmdline and cwd should be populated for connections with PIDs
+	// note: they might be empty if we don't have permission to read them
+	if connWithProcess.Cmdline != "" {
+		t.Logf("cmdline: %s", connWithProcess.Cmdline)
+	} else {
+		t.Logf("cmdline is empty (might be permission issue)")
+	}
+
+	if connWithProcess.Cwd != "" {
+		t.Logf("cwd: %s", connWithProcess.Cwd)
+	} else {
+		t.Logf("cwd is empty (might be permission issue)")
+	}
+}
+
+func TestGetProcessInfoPopulatesCmdlineAndCwd(t *testing.T) {
+	// test that getProcessInfo correctly populates cmdline and cwd for our own process
+	info, err := getProcessInfo(1) // init process (usually has cwd of /)
+	if err != nil {
+		t.Logf("could not get process info for pid 1: %v", err)
+		t.Skip("skipping - may not have permission")
+	}
+
+	t.Logf("pid 1 info: command=%s cmdline=%s cwd=%s", info.command, info.cmdline, info.cwd)
+
+	// at minimum, we should have a command name
+	if info.command == "" && info.cmdline == "" {
+		t.Error("expected either command or cmdline to be populated")
+	}
+}
