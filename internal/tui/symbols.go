@@ -33,6 +33,8 @@ const (
 	BoxCross    = string('\u253C') // light vertical and horizontal
 
 	// misc
-	SymbolDash = string('\u2013') // en dash
+	SymbolDash   = string('\u2013') // en dash
+	SymbolExport = string('\u21E5') // rightwards arrow to bar
+	SymbolPrompt = string('\u276F') // heavy right-pointing angle quotation mark ornament
 )
 

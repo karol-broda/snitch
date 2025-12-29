@@ -37,6 +37,19 @@ static const char* get_username(int uid) {
     return pw->pw_name;
 }
 
+// get current working directory for a process
+static int get_proc_cwd(int pid, char *path, int pathlen) {
+    struct proc_vnodepathinfo vpi;
+    int ret = proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &vpi, sizeof(vpi));
+    if (ret <= 0) {
+        path[0] = '\0';
+        return -1;
+    }
+    strncpy(path, vpi.pvi_cdir.vip_path, pathlen - 1);
+    path[pathlen - 1] = '\0';
+    return 0;
+}
+
 // socket info extraction - handles the union properly in C
 typedef struct {
     int family;
@@ -164,6 +177,7 @@ func listAllPids() ([]int, error) {
 
 func getConnectionsForPid(pid int) ([]Connection, error) {
 	procName := getProcessName(pid)
+	cwd := getProcessCwd(pid)
 	uid := int(C.get_proc_uid(C.int(pid)))
 	user := ""
 	if uid >= 0 {
@@ -198,7 +212,7 @@ func getConnectionsForPid(pid int) ([]Connection, error) {
 			continue
 		}
 
-		conn, ok := getSocketInfo(pid, int(fdInfo.proc_fd), procName, uid, user)
+		conn, ok := getSocketInfo(pid, int(fdInfo.proc_fd), procName, cwd, uid, user)
 		if ok {
 			connections = append(connections, conn)
 		}
@@ -207,7 +221,7 @@ func getConnectionsForPid(pid int) ([]Connection, error) {
 	return connections, nil
 }
 
-func getSocketInfo(pid, fd int, procName string, uid int, user string) (Connection, bool) {
+func getSocketInfo(pid, fd int, procName, cwd string, uid int, user string) (Connection, bool) {
 	var info C.socket_info_t
 
 	ret := C.get_socket_info(C.int(pid), C.int(fd), &info)
@@ -276,6 +290,7 @@ func getSocketInfo(pid, fd int, procName string, uid int, user string) (Connecti
 		Rport:     int(info.rport),
 		PID:       pid,
 		Process:   procName,
+		Cwd:       cwd,
 		UID:       uid,
 		User:      user,
 		Interface: guessNetworkInterface(laddr),
@@ -291,6 +306,15 @@ func getProcessName(pid int) string {
 		return ""
 	}
 	return C.GoString(&name[0])
+}
+
+func getProcessCwd(pid int) string {
+	var path [1024]C.char
+	ret := C.get_proc_cwd(C.int(pid), &path[0], 1024)
+	if ret != 0 {
+		return ""
+	}
+	return C.GoString(&path[0])
 }
 
 func ipv4ToString(addr uint32) string {

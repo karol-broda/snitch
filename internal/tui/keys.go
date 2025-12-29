@@ -2,16 +2,23 @@ package tui
 
 import (
 	"fmt"
-	"github.com/karol-broda/snitch/internal/collector"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/karol-broda/snitch/internal/collector"
 )
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// search mode captures all input
 	if m.searchActive {
 		return m.handleSearchKey(msg)
+	}
+
+	// export modal captures all input
+	if m.showExportModal {
+		return m.handleExportKey(msg)
 	}
 
 	// kill confirmation dialog
@@ -50,6 +57,82 @@ func (m model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+func (m model) handleExportKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.showExportModal = false
+		m.exportFilename = ""
+		m.exportFormat = ""
+		m.exportError = ""
+
+	case "tab":
+		// toggle format
+		if m.exportFormat == "tsv" {
+			m.exportFormat = "csv"
+		} else {
+			m.exportFormat = "tsv"
+		}
+		m.exportError = ""
+
+	case "enter":
+		// build final filename with extension
+		filename := m.exportFilename
+		if filename == "" {
+			filename = "connections"
+		}
+
+		ext := ".csv"
+		if m.exportFormat == "tsv" {
+			ext = ".tsv"
+		}
+
+		// only add extension if not already present
+		if !strings.HasSuffix(strings.ToLower(filename), ".csv") &&
+			!strings.HasSuffix(strings.ToLower(filename), ".tsv") {
+			filename = filename + ext
+		}
+		m.exportFilename = filename
+
+		err := m.exportConnections()
+		if err != nil {
+			m.exportError = err.Error()
+			return m, nil
+		}
+
+		visible := m.visibleConnections()
+		m.statusMessage = fmt.Sprintf("%s exported %d connections to %s", SymbolSuccess, len(visible), filename)
+		m.statusExpiry = time.Now().Add(3 * time.Second)
+		m.showExportModal = false
+		m.exportFilename = ""
+		m.exportFormat = ""
+		m.exportError = ""
+		return m, clearStatusAfter(3 * time.Second)
+
+	case "backspace":
+		if len(m.exportFilename) > 0 {
+			m.exportFilename = m.exportFilename[:len(m.exportFilename)-1]
+		}
+		m.exportError = ""
+
+	default:
+		// only accept valid filename characters
+		char := msg.String()
+		if len(char) == 1 && isValidFilenameChar(char[0]) {
+			m.exportFilename += char
+			m.exportError = ""
+		}
+	}
+	return m, nil
+}
+
+func isValidFilenameChar(c byte) bool {
+	// allow alphanumeric, dash, underscore, dot
+	return (c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') ||
+		c == '-' || c == '_' || c == '.'
 }
 
 func (m model) handleDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -156,6 +239,13 @@ func (m model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "/":
 		m.searchActive = true
 		m.searchQuery = ""
+
+	// export
+	case "x":
+		m.showExportModal = true
+		m.exportFilename = ""
+		m.exportFormat = "csv"
+		m.exportError = ""
 
 	// actions
 	case "enter", " ":
@@ -276,6 +366,8 @@ func (m *model) cycleSort() {
 		collector.SortByPID,
 		collector.SortByState,
 		collector.SortByProto,
+		collector.SortByRaddr,
+		collector.SortByRport,
 	}
 
 	for i, f := range fields {

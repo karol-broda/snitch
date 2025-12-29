@@ -38,6 +38,10 @@ func sortFieldLabel(f collector.SortField) string {
 		return "state"
 	case collector.SortByProto:
 		return "proto"
+	case collector.SortByRaddr:
+		return "raddr"
+	case collector.SortByRport:
+		return "rport"
 	default:
 		return "port"
 	}

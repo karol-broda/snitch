@@ -128,3 +128,75 @@ func TestSortByTimestamp(t *testing.T) {
 	}
 }
 
+func TestSortByRemoteAddr(t *testing.T) {
+	conns := []Connection{
+		{Raddr: "192.168.1.100", Rport: 443},
+		{Raddr: "10.0.0.1", Rport: 80},
+		{Raddr: "172.16.0.50", Rport: 8080},
+	}
+
+	t.Run("sort by raddr ascending", func(t *testing.T) {
+		c := make([]Connection, len(conns))
+		copy(c, conns)
+
+		SortConnections(c, SortOptions{Field: SortByRaddr, Direction: SortAsc})
+
+		if c[0].Raddr != "10.0.0.1" {
+			t.Errorf("expected '10.0.0.1' first, got '%s'", c[0].Raddr)
+		}
+		if c[1].Raddr != "172.16.0.50" {
+			t.Errorf("expected '172.16.0.50' second, got '%s'", c[1].Raddr)
+		}
+		if c[2].Raddr != "192.168.1.100" {
+			t.Errorf("expected '192.168.1.100' last, got '%s'", c[2].Raddr)
+		}
+	})
+
+	t.Run("sort by raddr descending", func(t *testing.T) {
+		c := make([]Connection, len(conns))
+		copy(c, conns)
+
+		SortConnections(c, SortOptions{Field: SortByRaddr, Direction: SortDesc})
+
+		if c[0].Raddr != "192.168.1.100" {
+			t.Errorf("expected '192.168.1.100' first, got '%s'", c[0].Raddr)
+		}
+	})
+}
+
+func TestSortByRemotePort(t *testing.T) {
+	conns := []Connection{
+		{Raddr: "192.168.1.1", Rport: 443},
+		{Raddr: "192.168.1.2", Rport: 80},
+		{Raddr: "192.168.1.3", Rport: 8080},
+	}
+
+	t.Run("sort by rport ascending", func(t *testing.T) {
+		c := make([]Connection, len(conns))
+		copy(c, conns)
+
+		SortConnections(c, SortOptions{Field: SortByRport, Direction: SortAsc})
+
+		if c[0].Rport != 80 {
+			t.Errorf("expected port 80 first, got %d", c[0].Rport)
+		}
+		if c[1].Rport != 443 {
+			t.Errorf("expected port 443 second, got %d", c[1].Rport)
+		}
+		if c[2].Rport != 8080 {
+			t.Errorf("expected port 8080 last, got %d", c[2].Rport)
+		}
+	})
+
+	t.Run("sort by rport descending", func(t *testing.T) {
+		c := make([]Connection, len(conns))
+		copy(c, conns)
+
+		SortConnections(c, SortOptions{Field: SortByRport, Direction: SortDesc})
+
+		if c[0].Rport != 8080 {
+			t.Errorf("expected port 8080 first, got %d", c[0].Rport)
+		}
+	})
+}
+
