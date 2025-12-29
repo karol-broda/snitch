@@ -125,6 +125,8 @@ func GetAllConnections() ([]Connection, error) {
 type processInfo struct {
 	pid     int
 	command string
+	cmdline string
+	cwd     string
 	uid     int
 	user    string
 }
@@ -248,34 +250,46 @@ func scanProcessSockets(pid int) []inodeEntry {
 
 func getProcessInfo(pid int) (*processInfo, error) {
 	info := &processInfo{pid: pid}
+	pidStr := strconv.Itoa(pid)
 
-	commPath := filepath.Join("/proc", strconv.Itoa(pid), "comm")
+	commPath := filepath.Join("/proc", pidStr, "comm")
 	commData, err := os.ReadFile(commPath)
 	if err == nil && len(commData) > 0 {
 		info.command = strings.TrimSpace(string(commData))
 	}
 
-	if info.command == "" {
-		cmdlinePath := filepath.Join("/proc", strconv.Itoa(pid), "cmdline")
-		cmdlineData, err := os.ReadFile(cmdlinePath)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(cmdlineData) > 0 {
-			parts := bytes.Split(cmdlineData, []byte{0})
-			if len(parts) > 0 && len(parts[0]) > 0 {
-				fullPath := string(parts[0])
-				baseName := filepath.Base(fullPath)
-				if strings.Contains(baseName, " ") {
-					baseName = strings.Fields(baseName)[0]
-				}
-				info.command = baseName
+	// read full cmdline
+	cmdlinePath := filepath.Join("/proc", pidStr, "cmdline")
+	cmdlineData, err := os.ReadFile(cmdlinePath)
+	if err == nil && len(cmdlineData) > 0 {
+		// cmdline is null-separated, join with spaces for display
+		parts := bytes.Split(cmdlineData, []byte{0})
+		var cleanParts []string
+		for _, p := range parts {
+			if len(p) > 0 {
+				cleanParts = append(cleanParts, string(p))
 			}
+		}
+		info.cmdline = strings.Join(cleanParts, " ")
+
+		// if command is empty, extract from cmdline
+		if info.command == "" && len(cleanParts) > 0 {
+			fullPath := cleanParts[0]
+			baseName := filepath.Base(fullPath)
+			if strings.Contains(baseName, " ") {
+				baseName = strings.Fields(baseName)[0]
+			}
+			info.command = baseName
 		}
 	}
 
-	statusPath := filepath.Join("/proc", strconv.Itoa(pid), "status")
+	// read current working directory
+	cwdPath := filepath.Join("/proc", pidStr, "cwd")
+	if cwd, err := os.Readlink(cwdPath); err == nil {
+		info.cwd = cwd
+	}
+
+	statusPath := filepath.Join("/proc", pidStr, "status")
 	statusFile, err := os.Open(statusPath)
 	if err != nil {
 		return info, nil
@@ -361,6 +375,8 @@ func parseProcNet(path, proto string, ipVersion int, inodeMap map[int64]*process
 		if procInfo, exists := inodeMap[inode]; exists {
 			conn.PID = procInfo.pid
 			conn.Process = procInfo.command
+			conn.Cmdline = procInfo.cmdline
+			conn.Cwd = procInfo.cwd
 			conn.UID = procInfo.uid
 			conn.User = procInfo.user
 		}

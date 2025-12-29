@@ -6,6 +6,7 @@ package collector
 #include <libproc.h>
 #include <sys/proc_info.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 #include <netinet/in.h>
 #include <netinet/tcp_fsm.h>
 #include <arpa/inet.h>
@@ -35,6 +36,61 @@ static const char* get_username(int uid) {
         return NULL;
     }
     return pw->pw_name;
+}
+
+// get process command line arguments using sysctl KERN_PROCARGS2
+static int get_proc_args(int pid, char *args, int argslen) {
+    int mib[3] = {CTL_KERN, KERN_PROCARGS2, pid};
+    size_t size = argslen;
+
+    if (sysctl(mib, 3, args, &size, NULL, 0) == -1) {
+        return -1;
+    }
+
+    if (size < sizeof(int)) {
+        return -1;
+    }
+
+    // first 4 bytes are argc
+    int argc = *(int*)args;
+    char *p = args + sizeof(int);
+    char *end = args + size;
+
+    // skip the executable path
+    while (p < end && *p != '\0') p++;
+    // skip trailing nulls after exec path
+    while (p < end && *p == '\0') p++;
+
+    // now p points to argv[0], collect all args
+    char *out = args;
+    int arg_count = 0;
+    while (p < end && arg_count < argc) {
+        size_t len = strlen(p);
+        if (len == 0) break;
+
+        if (out != args) {
+            *out++ = ' ';
+        }
+        memcpy(out, p, len);
+        out += len;
+        p += len + 1;
+        arg_count++;
+    }
+    *out = '\0';
+
+    return out - args;
+}
+
+// get process current working directory
+static int get_proc_cwd(int pid, char *cwd, int cwdlen) {
+    struct proc_vnodepathinfo vpi;
+    int ret = proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &vpi, sizeof(vpi));
+    if (ret <= 0) {
+        return -1;
+    }
+    strncpy(cwd, vpi.pvi_cdir.vip_path, cwdlen - 1);
+    cwd[cwdlen - 1] = '\0';
+    return strlen(cwd);
 }
 
 // socket info extraction - handles the union properly in C
@@ -164,6 +220,8 @@ func listAllPids() ([]int, error) {
 
 func getConnectionsForPid(pid int) ([]Connection, error) {
 	procName := getProcessName(pid)
+	cmdline := getProcessArgs(pid)
+	cwd := getProcessCwd(pid)
 	uid := int(C.get_proc_uid(C.int(pid)))
 	user := ""
 	if uid >= 0 {
@@ -198,7 +256,7 @@ func getConnectionsForPid(pid int) ([]Connection, error) {
 			continue
 		}
 
-		conn, ok := getSocketInfo(pid, int(fdInfo.proc_fd), procName, uid, user)
+		conn, ok := getSocketInfo(pid, int(fdInfo.proc_fd), procName, cmdline, cwd, uid, user)
 		if ok {
 			connections = append(connections, conn)
 		}
@@ -207,7 +265,7 @@ func getConnectionsForPid(pid int) ([]Connection, error) {
 	return connections, nil
 }
 
-func getSocketInfo(pid, fd int, procName string, uid int, user string) (Connection, bool) {
+func getSocketInfo(pid, fd int, procName, cmdline, cwd string, uid int, user string) (Connection, bool) {
 	var info C.socket_info_t
 
 	ret := C.get_socket_info(C.int(pid), C.int(fd), &info)
@@ -276,6 +334,8 @@ func getSocketInfo(pid, fd int, procName string, uid int, user string) (Connecti
 		Rport:     int(info.rport),
 		PID:       pid,
 		Process:   procName,
+		Cmdline:   cmdline,
+		Cwd:       cwd,
 		UID:       uid,
 		User:      user,
 		Interface: guessNetworkInterface(laddr),
@@ -291,6 +351,24 @@ func getProcessName(pid int) string {
 		return ""
 	}
 	return C.GoString(&name[0])
+}
+
+func getProcessArgs(pid int) string {
+	var args [8192]C.char
+	ret := C.get_proc_args(C.int(pid), &args[0], 8192)
+	if ret <= 0 {
+		return ""
+	}
+	return C.GoString(&args[0])
+}
+
+func getProcessCwd(pid int) string {
+	var cwd [1024]C.char
+	ret := C.get_proc_cwd(C.int(pid), &cwd[0], 1024)
+	if ret <= 0 {
+		return ""
+	}
+	return C.GoString(&cwd[0])
 }
 
 func ipv4ToString(addr uint32) string {

@@ -6,6 +6,8 @@ type Connection struct {
 	TS         time.Time `json:"ts"`
 	PID        int       `json:"pid"`
 	Process    string    `json:"process"`
+	Cmdline    string    `json:"cmdline"`
+	Cwd        string    `json:"cwd"`
 	User       string    `json:"user"`
 	UID        int       `json:"uid"`
 	Proto      string    `json:"proto"`

@@ -302,6 +302,8 @@ func (m model) renderDetail() string {
 	}{
 		{"process", c.Process},
 		{"pid", fmt.Sprintf("%d", c.PID)},
+		{"cmdline", c.Cmdline},
+		{"cwd", c.Cwd},
 		{"user", c.User},
 		{"protocol", c.Proto},
 		{"state", c.State},
