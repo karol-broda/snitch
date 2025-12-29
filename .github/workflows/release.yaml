@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release-linux:
@@ -48,3 +49,78 @@ jobs:
           args: release --clean --config .goreleaser-darwin.yaml --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-containers:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        variant: [alpine, debian, ubuntu, scratch]
+        include:
+          - variant: alpine
+            is_default: true
+          - variant: debian
+            is_default: false
+          - variant: ubuntu
+            is_default: false
+          - variant: scratch
+            is_default: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: DeterminateSystems/nix-installer-action@v17
+
+      - uses: nix-community/cache-nix-action@v6
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+
+      - name: login to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build container
+        run: nix build ".#snitch-${{ matrix.variant }}" --print-out-paths
+
+      - name: load and push container
+        env:
+          VERSION: ${{ github.ref_name }}
+          REPO: ghcr.io/${{ github.repository_owner }}/snitch
+          VARIANT: ${{ matrix.variant }}
+          IS_DEFAULT: ${{ matrix.is_default }}
+        run: |
+          VERSION="${VERSION#v}"
+
+          docker load < result
+
+          IMAGE_TAG=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep "snitch:.*-${VARIANT}" | head -1)
+
+          if [ -z "$IMAGE_TAG" ]; then
+            echo "error: could not find loaded image for ${VARIANT}"
+            exit 1
+          fi
+
+          docker tag "$IMAGE_TAG" "${REPO}:${VERSION}-${VARIANT}"
+          docker tag "$IMAGE_TAG" "${REPO}:latest-${VARIANT}"
+          docker push "${REPO}:${VERSION}-${VARIANT}"
+          docker push "${REPO}:latest-${VARIANT}"
+
+          if [ "$IS_DEFAULT" = "true" ]; then
+            docker tag "$IMAGE_TAG" "${REPO}:${VERSION}"
+            docker tag "$IMAGE_TAG" "${REPO}:latest"
+            docker push "${REPO}:${VERSION}"
+            docker push "${REPO}:latest"
+          fi
+
+      - name: summary
+        env:
+          VERSION: ${{ github.ref_name }}
+          REPO: ghcr.io/${{ github.repository_owner }}/snitch
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          VERSION="${VERSION#v}"
+          echo "pushed ${REPO}:${VERSION}-${VARIANT}" >> $GITHUB_STEP_SUMMARY
