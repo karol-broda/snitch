@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -289,6 +290,13 @@ func (m model) matchesFilters(c collector.Connection) bool {
 }
 
 func (m model) matchesSearch(c collector.Connection) bool {
+	// match by port number (local or remote)
+	lport := strconv.Itoa(c.Lport)
+	rport := strconv.Itoa(c.Rport)
+	if containsIgnoreCase(lport, m.searchQuery) || containsIgnoreCase(rport, m.searchQuery) {
+		return true
+	}
+
 	return containsIgnoreCase(c.Process, m.searchQuery) ||
 		containsIgnoreCase(c.Laddr, m.searchQuery) ||
 		containsIgnoreCase(c.Raddr, m.searchQuery) ||
