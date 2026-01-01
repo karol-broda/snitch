@@ -1,0 +1,9 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question / Discussion
+    url: https://github.com/karol-broda/snitch/discussions
+    about: Ask questions, share ideas, or discuss snitch usage
+  - name: Documentation
+    url: https://github.com/karol-broda/snitch#readme
+    about: Check the README for usage and configuration docs
+
