@@ -8,16 +8,18 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/thediveo/netdb"
 )
 
 var debugTiming = os.Getenv("SNITCH_DEBUG_TIMING") != ""
 
 // Resolver handles DNS and service name resolution with caching and timeouts
 type Resolver struct {
-	timeout  time.Duration
-	cache    map[string]string
-	mutex    sync.RWMutex
-	noCache  bool
+	timeout time.Duration
+	cache   map[string]string
+	mutex   sync.RWMutex
+	noCache bool
 }
 
 // New creates a new resolver with the specified timeout
@@ -148,36 +150,18 @@ func (r *Resolver) GetCacheSize() int {
 
 // getServiceName returns well-known service names for common ports
 func getServiceName(port int, proto string) string {
-	// Common services - this could be expanded or loaded from /etc/services
-	services := map[string]string{
-		"80/tcp":   "http",
-		"443/tcp":  "https",
-		"22/tcp":   "ssh",
-		"21/tcp":   "ftp",
-		"25/tcp":   "smtp",
-		"53/tcp":   "domain",
-		"53/udp":   "domain",
-		"110/tcp":  "pop3",
-		"143/tcp":  "imap",
-		"993/tcp":  "imaps",
-		"995/tcp":  "pop3s",
-		"3306/tcp": "mysql",
-		"5432/tcp": "postgresql",
-		"6379/tcp": "redis",
-		"3389/tcp": "rdp",
-		"5900/tcp": "vnc",
-		"23/tcp":   "telnet",
-		"69/udp":   "tftp",
-		"123/udp":  "ntp",
-		"161/udp":  "snmp",
-		"514/udp":  "syslog",
-		"67/udp":   "bootps",
-		"68/udp":   "bootpc",
+	// standardize the protocols to tcp/udp
+	switch proto {
+	case "tcp4", "tcp6":
+		proto = "tcp"
+	case "udp4", "udp6":
+		proto = "udp"
 	}
 
-	key := strconv.Itoa(port) + "/" + proto
-	if service, exists := services[key]; exists {
-		return service
+	svc := netdb.ServiceByPort(port, proto)
+
+	if svc != nil {
+		return svc.Name
 	}
 
 	return ""

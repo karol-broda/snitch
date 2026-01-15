@@ -10,6 +10,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
+	github.com/thediveo/netdb v1.1.2
 	github.com/tidwall/pretty v1.2.1
 	golang.org/x/term v0.38.0
 )
