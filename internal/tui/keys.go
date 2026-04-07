@@ -332,6 +332,17 @@ func (m model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.statusExpiry = time.Now().Add(2 * time.Second)
 		m.saveState()
 		return m, clearStatusAfter(2 * time.Second)
+
+	case "b":
+		m.showBandwidth = !m.showBandwidth
+		if m.showBandwidth {
+			m.statusMessage = "bandwidth monitor: on"
+			m.statusExpiry = time.Now().Add(2 * time.Second)
+			return m, tea.Batch(m.fetchBandwidth(), clearStatusAfter(2*time.Second))
+		}
+		m.statusMessage = "bandwidth monitor: off"
+		m.statusExpiry = time.Now().Add(2 * time.Second)
+		return m, clearStatusAfter(2 * time.Second)
 	}
 
 	return m, nil

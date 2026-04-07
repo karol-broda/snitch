@@ -2,13 +2,14 @@ package tui
 
 import (
 	"fmt"
-	"github.com/karol-broda/snitch/internal/collector"
-	"github.com/karol-broda/snitch/internal/resolver"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/mattn/go-runewidth"
+
+	"github.com/karol-broda/snitch/internal/collector"
+	"github.com/karol-broda/snitch/internal/resolver"
 )
 
 func (m model) renderMain() string {
@@ -643,12 +644,12 @@ type columns struct {
 func (m model) columnWidths() columns {
 	// minimum widths (header lengths + padding)
 	c := columns{
-		process: 7,  // "PROCESS"
-		port:    4,  // "PORT"
-		proto:   5,  // "PROTO"
-		state:   5,  // "STATE"
-		local:   5,  // "LOCAL"
-		remote:  6,  // "REMOTE"
+		process: 7, // "PROCESS"
+		port:    4, // "PORT"
+		proto:   5, // "PROTO"
+		state:   5, // "STATE"
+		local:   5, // "LOCAL"
+		remote:  6, // "REMOTE"
 	}
 
 	// scan visible connections to find max content width for each column

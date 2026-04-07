@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/karol-broda/snitch/internal/bandwidth"
 	"github.com/karol-broda/snitch/internal/collector"
 	"github.com/karol-broda/snitch/internal/state"
 	"github.com/karol-broda/snitch/internal/theme"
@@ -65,6 +66,11 @@ type model struct {
 
 	// state persistence
 	rememberState bool
+
+	// bandwidth monitoring
+	showBandwidth   bool
+	bwTracker       *bandwidth.Tracker
+	bwRates         *bandwidth.RateResult
 }
 
 type Options struct {
@@ -151,6 +157,7 @@ func New(opts Options) model {
 		lastRefresh:     time.Now(),
 		watchedPIDs:     make(map[int]bool),
 		rememberState:   opts.RememberState,
+		bwTracker:       bandwidth.NewTracker(),
 	}
 }
 
@@ -158,6 +165,7 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		tea.HideCursor,
 		m.fetchData(),
+		m.fetchBandwidth(),
 		m.tick(),
 	)
 }
@@ -173,7 +181,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 
 	case tickMsg:
-		return m, tea.Batch(m.fetchData(), m.tick())
+		cmds := []tea.Cmd{m.fetchData(), m.tick()}
+		if m.showBandwidth {
+			cmds = append(cmds, m.fetchBandwidth())
+		}
+		return m, tea.Batch(cmds...)
 
 	case dataMsg:
 		m.connections = msg.connections
@@ -199,6 +211,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if time.Now().After(m.statusExpiry) {
 			m.statusMessage = ""
 		}
+		return m, nil
+
+	case bwUpdateMsg:
+		m.bwRates = msg.rates
 		return m, nil
 	}
 

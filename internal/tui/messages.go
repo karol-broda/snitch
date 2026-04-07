@@ -2,12 +2,14 @@ package tui
 
 import (
 	"fmt"
-	"github.com/karol-broda/snitch/internal/collector"
-	"github.com/karol-broda/snitch/internal/resolver"
 	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/karol-broda/snitch/internal/bandwidth"
+	"github.com/karol-broda/snitch/internal/collector"
+	"github.com/karol-broda/snitch/internal/resolver"
 )
 
 type tickMsg time.Time
@@ -29,6 +31,10 @@ type killResultMsg struct {
 
 type clearStatusMsg struct{}
 
+type bwUpdateMsg struct {
+	rates *bandwidth.RateResult
+}
+
 func (m model) tick() tea.Cmd {
 	return tea.Tick(m.interval, func(t time.Time) tea.Msg {
 		return tickMsg(t)
@@ -42,7 +48,6 @@ func (m model) fetchData() tea.Cmd {
 		if err != nil {
 			return errMsg{err}
 		}
-		// pre-warm dns cache in parallel if resolution is enabled
 		if resolveAddrs {
 			addrs := make([]string, 0, len(conns)*2)
 			for _, c := range conns {
@@ -89,5 +94,19 @@ func clearStatusAfter(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg {
 		return clearStatusMsg{}
 	})
+}
+
+func (m model) fetchBandwidth() tea.Cmd {
+	tracker := m.bwTracker
+	return func() tea.Msg {
+		if tracker == nil {
+			return bwUpdateMsg{rates: nil}
+		}
+		rates, err := tracker.Update()
+		if err != nil {
+			return bwUpdateMsg{rates: nil}
+		}
+		return bwUpdateMsg{rates: rates}
+	}
 }
 
